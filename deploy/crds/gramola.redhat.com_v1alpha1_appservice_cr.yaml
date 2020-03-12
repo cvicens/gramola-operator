@@ -3,5 +3,4 @@ kind: AppService
 metadata:
   name: example-appservice
 spec:
-  # Add fields here
-  size: 3
+  enabled: true

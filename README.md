@@ -118,7 +118,7 @@ $ oc apply -f deploy/service_account.yaml
 $ oc apply -f deploy/role.yaml
 $ oc apply -f deploy/role_binding.yaml
 # Setup the CRD
-$ oc apply -f deploy/crds/app.example.com_appservices_crd.yaml
+$ oc apply -f deploy/crds/gramola.redhat.com_appservices_crd.yaml
 
 # Run locally
 $ operator-sdk run --local --namespace ${PROJECT_NAME}
@@ -128,7 +128,40 @@ $ oc apply -f deploy/operator.yaml
 
 # Create an AppService CR
 # The default controller will watch for AppService objects and create a pod for each CR
-$ oc apply -f deploy/crds/app.example.com_v1alpha1_appservice_cr.yaml
+$ oc apply -f deploy/crds/gramola.redhat.com_v1alpha1_appservice_cr.yaml
+
+You should get this error:
+
+```
+oc apply -f deploy/crds/gramola.redhat.com_v1alpha1_appservice_cr.yaml 
+The AppService "example-appservice" is invalid: 
+* spec.enabled: Required value
+* spec.initialized: Required value
+```
+
+Change the type, so that initialized is not required
+
+```go
+Initialized bool `json:"initialized,omitempty"`
+```
+
+Let's change the CR so that enabled is defined:
+
+```yaml
+apiVersion: gramola.redhat.com/v1alpha1
+kind: AppService
+metadata:
+  name: example-appservice
+spec:
+  enabled: true
+```
+
+Now if you try again... is thould work.
+
+```
+$ oc apply -f deploy/crds/gramola.redhat.com_v1alpha1_appservice_cr.yaml
+appservice.gramola.redhat.com/example-appservice created
+```
 
 # Verify that a pod is created
 $ oc get pod -l app=example-appservice
@@ -138,17 +171,19 @@ example-appservice-pod   1/1       Running   0          1m
 # Test the new Resource Type
 $ oc describe appservice example-appservice
 Name:         example-appservice
-Namespace:    myproject
+Namespace:    gramola-operator-project
 Labels:       <none>
-Annotations:  <none>
-API Version:  app.example.com/v1alpha1
+Annotations:  kubectl.kubernetes.io/last-applied-configuration:
+                {"apiVersion":"gramola.redhat.com/v1alpha1","kind":"AppService","metadata":{"annotations":{},"name":"example-appservice","namespace":"gram...
+API Version:  gramola.redhat.com/v1alpha1
 Kind:         AppService
 Metadata:
-  Cluster Name:        
-  Creation Timestamp:  2018-12-17T21:18:43Z
+  Creation Timestamp:  2020-03-12T10:30:09Z
   Generation:          1
-  Resource Version:    248412
-  Self Link:           /apis/app.example.com/v1alpha1/namespaces/myproject/appservices/example-appservice
-  UID:                 554f301f-0241-11e9-b551-080027c7d133
+  Resource Version:    920134
+  Self Link:           /apis/gramola.redhat.com/v1alpha1/namespaces/gramola-operator-project/appservices/example-appservice
+  UID:                 21dac31a-fc2f-4fb4-9d78-bc8d72531281
 Spec:
-  Size:  3
+  Enabled:  true
+Events:     <none>
+

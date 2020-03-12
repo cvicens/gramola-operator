@@ -16,7 +16,7 @@ type AppServiceSpec struct {
 	// Flags if the the AppService object is enabled or not
 	Enabled bool `json:"enabled"`
 	// Flags if the object has been initialized or not
-	Initialized bool `json:"initialized"`
+	Initialized bool `json:"initialized,omitempty"`
 	// Different names for Gramola Service
 	// +kubebuilder:validation:Enum=Gramola;Gramophone;Phonograph
 	Alias string `json:"alias,omitempty"`
