@@ -16,6 +16,7 @@ cd $GOPATH
 export GO111MODULE=on
 
 export OPERATOR_NAME="gramola-operator"
+export OPERATOR_IMAGE="gramola-operator-image"
 export API_VERSION="gramola.redhat.com/v1alpha1"
 
 export PROJECT_NAME=${OPERATOR_NAME}-project
@@ -90,19 +91,19 @@ $ export USERNAME=<username>
 
 # Build and push the ${OPERATOR_NAME} image to a public registry such as quay.io
 $ export OPERATOR_VERSION=0.0.1
-$ operator-sdk build quay.io/${USERNAME}/${OPERATOR_NAME}:${OPERATOR_VERSION}
+$ operator-sdk build quay.io/${USERNAME}/${OPERATOR_IMAGE}:${OPERATOR_VERSION}
 
 # Login to public registry such as quay.io
 $ docker login quay.io
 
 # Push image
-$ docker push quay.io/${USERNAME}/${OPERATOR_NAME}:${OPERATOR_VERSION}
+$ docker push quay.io/${USERNAME}/${OPERATOR_IMAGE}:${OPERATOR_VERSION}
 
 # Update the operator manifest to use the built image name (if you are performing these steps on OSX, see note below)
-$ sed -i "s|REPLACE_IMAGE|quay.io/${USERNAME}/${OPERATOR_NAME}\:${OPERATOR_VERSION}|g" deploy/operator.yaml
+$ sed -i "s|REPLACE_IMAGE|quay.io/${USERNAME}/${OPERATOR_IMAGE}\:${OPERATOR_VERSION}|g" deploy/operator.yaml
 
 # On OSX use:
-$ sed -i "" "s|REPLACE_IMAGE|quay.io/${USERNAME}/${OPERATOR_NAME}\:${OPERATOR_VERSION}|g" deploy/operator.yaml
+$ sed -i "" "s|REPLACE_IMAGE|quay.io/${USERNAME}/${OPERATOR_IMAGE}\:${OPERATOR_VERSION}|g" deploy/operator.yaml
 
 # Set/Create project
 
@@ -190,7 +191,7 @@ Events:     <none>
 # Generate CSV 0.0.1
 
 ```sh
-$ operator-sdk generate csv --csv-version 0.0.1
+$ operator-sdk generate csv --csv-version 0.0.1 --update-crds
 INFO[0000] Generating CSV manifest version 0.0.1        
 WARN[0000] Required csv fields not filled in file deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml:
 	spec.keywords
@@ -201,16 +202,43 @@ WARN[0000] Required csv fields not filled in file deploy/olm-catalog/gramola-ope
 We have to provide keywords, maintainers, provider... and also an icon ;-)
 
 ```
-yq d -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.provider
-yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.provider.name "ACME Inc."
-yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.keywords[+] "gramola"
-yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.keywords[+] "backend"
-yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.icon[+].base64data $(cat gramola.svg | base64)
-yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.icon[0].mediatype image/svg+xml
-yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.maintainers[+].email "admin@gramola.com"
-yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.maintainers[0].name "ACME Inc."
+export CSV_PATH=./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml
+yq d -i ${CSV_PATH} spec.provider
+yq w -i ${CSV_PATH} spec.provider.name "ACME Inc."
+yq w -i ${CSV_PATH} spec.description "Gramola Operator by ACME Inc."
+yq w -i ${CSV_PATH} spec.keywords[+] "gramola"
+yq w -i ${CSV_PATH} spec.keywords[+] "backend"
+yq w -i ${CSV_PATH} spec.icon[+].base64data $(cat gramola.svg | base64)
+yq w -i ${CSV_PATH} spec.icon[0].mediatype image/svg+xml
+yq w -i ${CSV_PATH} spec.maintainers[+].email "admin@gramola.com"
+yq w -i ${CSV_PATH} spec.maintainers[0].name "ACME Inc."
+
+yq w -i ${CSV_PATH} metadata.annotations.createdAt "2020-03-12T02:45:00Z"
+yq w -i ${CSV_PATH} metadata.annotations.categories "Other"
+yq w -i ${CSV_PATH} metadata.annotations.certified --tag '!!str' false
+yq w -i ${CSV_PATH} metadata.annotations.support: ACME
+yq w -i ${CSV_PATH} metadata.annotations.containerImage "quay.io/cvicensa/gramola-operator:0.0.1"
+yq w -i ${CSV_PATH} metadata.annotations.description "Gramola Operator deploys the backend needed to support Gramola mobile App."
 
 ```
+
+##```
+##cat << EOF > update_instructions.yaml
+##- command: update 
+##  path: spec.customresourcedefinitions.owned
+##  value:
+##    - description: Gramola AppService definition
+##      displayName: AppService
+##      kind: AppService
+##      name: appservices.gramola.redhat.com
+##      version: v1alpha1
+##EOF
+##yq w -i -s update_instructions.yaml ${CSV_PATH}
+##```
+
+
+
+
 
 git add .
 git commit -a -m "new"
@@ -219,5 +247,56 @@ git checkout -b 0.0.1
 git push origin 0.0.1
 git checkout master
 git tag -a v0.0.1 -m "version 0.0.1"
+
+# Installing operator-courier
+
+```
+sudo pip install virtualenv
+virtualenv -p python3 venv
+echo "venv/" >> .gitignore
+source venv/bin/activate
+```
+
+> To leave the virtual env just deactivate it...
+> `$ deactivate`
+
+```
+pip3 install operator-courier
+```
+
+# Generate Quay token
+
+```
+sh gen_quayio_auth_token.sh
+Username: jmanning
+Password:
+basic am1hbm5pbmc6ZXhhbXBsZXB3
+```
+
+operator-courier push ./deploy/olm-catalog/gramola-operator cvicensa gramola-operator 0.0.1 "basic Y3ZpY2Vuc2E6Rm9tYXJlITAx"
+
+# Go to Quay / Applications
+
+Make your gramola-operator application public
+
+# Linking the Operator Metadata from Quay into OpenShift
+For OpenShift to become aware of the Quay application repository, an OperatorSource CR needs to be added to the cluster. Login to your OpenShift cluster as an admin (such as kubeadmin) and change to the openshift-marketplace project:
+
+```
+oc project openshift-marketplace
+```
+
+```
+oc get opsrc
+```
+
+# Update the gramola-operatorsource to use your Quay USERNAME (if you are performing these steps on OSX, see note below)
+$ sed -i "s|USERNAME|${USERNAME}|g" deploy/operator-source.yaml
+
+# On OSX use:
+$ sed -i "" "s|USERNAME|${USERNAME}|g" deploy/operator-source.yaml
+
+
+
 
 https://redhat-connect.gitbook.io/certified-operator-guide/ocp-deployment/openshift-deployment
