@@ -89,7 +89,7 @@ go list -m -versions gopkg.in/src-d/go-git.v4
 $ export USERNAME=<username>
 
 # Build and push the ${OPERATOR_NAME} image to a public registry such as quay.io
-$ export OPERATOR_VERSION=v0.1.0
+$ export OPERATOR_VERSION=0.0.1
 $ operator-sdk build quay.io/${USERNAME}/${OPERATOR_NAME}:${OPERATOR_VERSION}
 
 # Login to public registry such as quay.io
@@ -187,3 +187,17 @@ Spec:
   Enabled:  true
 Events:     <none>
 
+# Generate CSV 0.1.0
+
+```sh
+$ operator-sdk generate csv --csv-version 0.0.1
+INFO[0000] Generating CSV manifest version 0.0.1        
+WARN[0000] Required csv fields not filled in file deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml:
+	spec.keywords
+	spec.maintainers
+	spec.provider 
+```
+
+
+
+https://redhat-connect.gitbook.io/certified-operator-guide/ocp-deployment/openshift-deployment
