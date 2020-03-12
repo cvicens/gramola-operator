@@ -212,6 +212,10 @@ yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clus
 
 ```
 
-
+git add .
+git commit -a -m "new"
+git push origin master
+git checkout -b 0.0.1
+git push origin 0.0.1
 
 https://redhat-connect.gitbook.io/certified-operator-guide/ocp-deployment/openshift-deployment
