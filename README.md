@@ -187,7 +187,7 @@ Spec:
   Enabled:  true
 Events:     <none>
 
-# Generate CSV 0.1.0
+# Generate CSV 0.0.1
 
 ```sh
 $ operator-sdk generate csv --csv-version 0.0.1
@@ -196,6 +196,20 @@ WARN[0000] Required csv fields not filled in file deploy/olm-catalog/gramola-ope
 	spec.keywords
 	spec.maintainers
 	spec.provider 
+```
+
+We have to provide keywords, maintainers, provider... and also an icon ;-)
+
+```
+yq d -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.provider
+yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.provider.name "ACME Inc."
+yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.keywords[+] "gramola"
+yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.keywords[+] "backend"
+yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.icon[+].base64data $(cat gramola.svg | base64)
+yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.icon[0].mediatype image/svg+xml
+yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.maintainers[+].email "admin@gramola.com"
+yq w -i ./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml spec.maintainers[0].name "ACME Inc."
+
 ```
 
 

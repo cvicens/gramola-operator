@@ -1,0 +1,156 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "gramola.redhat.com/v1alpha1",
+          "kind": "AppService",
+          "metadata": {
+            "name": "example-appservice"
+          },
+          "spec": {
+            "enabled": true
+          }
+        }
+      ]
+    capabilities: Basic Install
+  name: gramola-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: AppService is the Schema for the appservices API
+      kind: AppService
+      name: appservices.gramola.redhat.com
+      version: v1alpha1
+  description: Placeholder description
+  displayName: Gramola Operator
+  install:
+    spec:
+      deployments:
+      - name: gramola-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: gramola-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: gramola-operator
+            spec:
+              containers:
+              - command:
+                - gramola-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: gramola-operator
+                image: quay.io/cvicensa/gramola-operator:v0.1.0
+                imagePullPolicy: Always
+                name: gramola-operator
+                resources: {}
+              serviceAccountName: gramola-operator
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - gramola-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - replicasets
+          - deployments
+          verbs:
+          - get
+        - apiGroups:
+          - gramola.redhat.com
+          resources:
+          - '*'
+          - appservices
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: gramola-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  maturity: alpha
+  provider: {}
+  replaces: gramola-operator.v0.0.0
+  version: 0.0.1
