@@ -4,5 +4,7 @@ metadata:
   name: acme-operators
 spec:
   type: appregistry
+  displayName: ACME Operators
+  publisher: ACME
   endpoint: https://quay.io/cnr
-  registryNamespace: USERNAME
+  registryNamespace: cvicensa

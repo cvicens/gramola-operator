@@ -2,6 +2,9 @@ package appservice
 
 import (
 	"context"
+	"fmt"
+	"math"
+	"time"
 
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,9 +20,31 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	record "k8s.io/client-go/tools/record"
+
+	// Import GateWay
+
+	// For now... blank
+	_ "github.com/redhat/gramola-operator/pkg/util"
 )
 
-var log = logf.Log.WithName("controller_appservice")
+// Operator Name
+const operatorName = "KharonOperator"
+
+// Best practices
+const controllerName = "controller-appservice"
+
+const (
+	errorAlias                    = "Not a proper AppService object because TargetRef is not Deployment or DeploymentConfig"
+	errorNotAppServiceObject      = "Not a AppService object"
+	errorAppServiceObjectNotValid = "Not a valid AppService object"
+	errorUnableToUpdateInstance   = "Unable to update instance"
+	errorUnableToUpdateStatus     = "Unable to update status"
+	errorUnexpected               = "Unexpected error"
+)
+
+var log = logf.Log.WithName(controllerName)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -34,13 +59,15 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileAppService{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	//return &ReconcileAppService{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	// Best practices
+	return &ReconcileAppService{client: mgr.GetClient(), scheme: mgr.GetScheme(), recorder: mgr.GetEventRecorderFor(controllerName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("appservice-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -73,6 +100,8 @@ type ReconcileAppService struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	// Best practices...
+	recorder record.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a AppService object and makes changes based on the state read
@@ -98,6 +127,18 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// Validate the CR instance
+	if ok, err := r.IsValid(instance); !ok {
+		return r.ManageError(instance, err)
+	}
+
+	//////////////////////////
+	// Gateway
+	//////////////////////////
+	if _, err := r.reconcileGateway(instance); err != nil {
+		return r.ManageError(instance, err)
 	}
 
 	// Define a new Pod object
@@ -126,6 +167,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Pod already exists - don't requeue
 	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	return r.ManageSuccess(instance, 0, gramolav1alpha1.NoAction)
 	return reconcile.Result{}, nil
 }
 
@@ -150,4 +192,110 @@ func newPodForCR(cr *gramolav1alpha1.AppService) *corev1.Pod {
 			},
 		},
 	}
+}
+
+// IsValid checks if our CR is valid or not
+func (r *ReconcileAppService) IsValid(obj metav1.Object) (bool, error) {
+	//log.Info(fmt.Sprintf("IsValid? %s", obj))
+
+	instance, ok := obj.(*gramolav1alpha1.AppService)
+	if !ok {
+		err := errors.NewBadRequest(errorNotAppServiceObject)
+		log.Error(err, errorNotAppServiceObject)
+		return false, err
+	}
+
+	// Check Alias
+	if len(instance.Spec.Alias) > 0 && instance.Spec.Alias != "Gramola" && instance.Spec.Alias != "Gramophone" {
+		err := errors.NewBadRequest(errorAlias)
+		log.Error(err, errorAlias)
+		return false, err
+	}
+
+	return true, nil
+}
+
+// ManageError manages an error object, an instance of the CR is passed along
+func (r *ReconcileAppService) ManageError(obj metav1.Object, issue error) (reconcile.Result, error) {
+	log.Error(issue, "Error managed")
+	runtimeObj, ok := (obj).(runtime.Object)
+	if !ok {
+		log.Error(errors.NewBadRequest("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
+		return reconcile.Result{}, nil
+	}
+	var retryInterval time.Duration
+	r.recorder.Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
+	if instance, ok := (obj).(*gramolav1alpha1.AppService); ok {
+		lastUpdate := instance.Status.LastUpdate
+		lastStatus := instance.Status.Status
+		status := gramolav1alpha1.ReconcileStatus{
+			LastUpdate: metav1.Now(),
+			Reason:     issue.Error(),
+			Status:     gramolav1alpha1.AppServiceConditionStatusFailure,
+		}
+		instance.Status.ReconcileStatus = status
+		err := r.client.Status().Update(context.Background(), runtimeObj)
+		if err != nil {
+			log.Error(err, errorUnableToUpdateStatus)
+			return reconcile.Result{
+				RequeueAfter: time.Second,
+				Requeue:      true,
+			}, nil
+		}
+		if lastUpdate.IsZero() || lastStatus == "Success" {
+			retryInterval = time.Second
+		} else {
+			retryInterval = status.LastUpdate.Sub(lastUpdate.Time.Round(time.Second))
+		}
+	} else {
+		log.Info("object is not RecocileStatusAware, not setting status")
+		retryInterval = time.Second
+	}
+	return reconcile.Result{
+		RequeueAfter: time.Duration(math.Min(float64(retryInterval.Nanoseconds()*2), float64(time.Hour.Nanoseconds()*6))),
+		Requeue:      true,
+	}, nil
+}
+
+// ManageSuccess manages a success and updates status accordingly, an instance of the CR is passed along
+func (r *ReconcileAppService) ManageSuccess(obj metav1.Object, requeueAfter time.Duration, action gramolav1alpha1.ActionType) (reconcile.Result, error) {
+	log.Info(fmt.Sprintf("===> ManageSuccess with requeueAfter: %d from: %s", requeueAfter, action))
+	runtimeObj, ok := (obj).(runtime.Object)
+	if !ok {
+		log.Error(errors.NewBadRequest("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
+		return reconcile.Result{}, nil
+	}
+	if instance, ok := (obj).(*gramolav1alpha1.AppService); ok {
+		status := gramolav1alpha1.ReconcileStatus{
+			LastUpdate: metav1.Now(),
+			Reason:     "",
+			Status:     gramolav1alpha1.AppServiceConditionStatusTrue,
+		}
+		instance.Status.ReconcileStatus = status
+		instance.Status.LastAction = action
+
+		err := r.client.Status().Update(context.Background(), runtimeObj)
+		if err != nil {
+			log.Error(err, "Unable to update status")
+			r.recorder.Event(runtimeObj, "Warning", "ProcessingError", "Unable to update status")
+			return reconcile.Result{
+				RequeueAfter: time.Second,
+				Requeue:      true,
+			}, nil
+		}
+		//if instance.Status.IsCanaryRunning {
+		//	r.recorder.Event(runtimeObj, "Normal", "StatusUpdate", fmt.Sprintf("AppService in progress %d%%", instance.Status.CanaryWeight))
+		//}
+	} else {
+		log.Info("object is not AppService, not setting status")
+		r.recorder.Event(runtimeObj, "Warning", "ProcessingError", "Object is not AppService, not setting status")
+	}
+
+	if requeueAfter > 0 {
+		return reconcile.Result{
+			RequeueAfter: requeueAfter,
+			Requeue:      true,
+		}, nil
+	}
+	return reconcile.Result{}, nil
 }

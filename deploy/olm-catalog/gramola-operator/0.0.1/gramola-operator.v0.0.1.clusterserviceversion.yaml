@@ -29,9 +29,18 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: AppService is the Schema for the appservices API
+    - description: AppService is the Schema for the appservices API defines Gramola
+        Backend Services
+      displayName: AppService
       kind: AppService
       name: appservices.gramola.redhat.com
+      specDescriptors:
+      - description: Different names for Gramola Service
+        displayName: Alias
+        path: alias
+      - description: Flags if the the AppService object is enabled or not
+        displayName: Enabled
+        path: enabled
       version: v1alpha1
   description: Gramola Operator by ACME Inc.
   displayName: Gramola Operator
