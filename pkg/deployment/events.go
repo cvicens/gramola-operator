@@ -14,85 +14,58 @@ const (
 	eventsDatabaseImage = "image-registry.openshift-image-registry.svc:5000/openshift/postgresql:10"
 )
 
-// NewEventsDeployment returns the deployment object for Gateway
-func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace string) *appsv1.Deployment {
+// NewEventsDeployment returns the deployment object for Events
+func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, secret string, databaseServiceName string, databaseServicePort string) *appsv1.Deployment {
 	image := eventsImage
+	annotations := GetEventsAnnotations(cr)
 	labels := GetAppServiceLabels(cr, name)
-
-	/*
-			- name: DB_USERNAME
-		              valueFrom:
-		                 secretKeyRef:
-		                   name: events-database-secret
-		                   key: database-user
-		            - name: DB_PASSWORD
-		              valueFrom:
-		                 secretKeyRef:
-		                   name: events-database-secret
-						   key: database-password
-					- name: DB_NAME
-		              valueFrom:
-		                 secretKeyRef:
-		                   name: events-database-secret
-		                   key: database-name
-		            - name: DB_SERVICE_NAME
-		              valueFrom:
-		                 configMapKeyRef:
-		                   name: events-configmap
-		                   key: database_service_name
-		            - name: DB_SERVICE_PORT
-		              valueFrom:
-		                 configMapKeyRef:
-		                   name: events-configmap
-		                   key: database_service_port
-
-	*/
+	labels["app.kubernetes.io/name"] = "java"
 
 	env := []corev1.EnvVar{
 		{
-			Name: "DB_DBID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					Key: "database-name",
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name + "-mysql",
-					},
-				},
-			},
-		},
-		{
-			Name:  "DB_HOST",
-			Value: name + "-mysql",
-		},
-		{
-			Name: "DB_PASS",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					Key: "database-password",
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name + "-mysql",
-					},
-				},
-			},
-		},
-		{
-			Name:  "DB_PORT",
-			Value: "3306",
-		},
-		{
-			Name: "DB_USER",
+			Name: "DB_USERNAME",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-user",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name + "-mysql",
+						Name: secret,
 					},
 				},
 			},
 		},
 		{
-			Name:  "NODE_ENV",
-			Value: "production",
+			Name: "DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					Key: "database-password",
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secret,
+					},
+				},
+			},
+		},
+		{
+			Name: "DB_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					Key: "database-name",
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secret,
+					},
+				},
+			},
+		},
+		{
+			Name:  "DB_SERVICE_NAME",
+			Value: databaseServiceName,
+		},
+		{
+			Name:  "DB_SERVICE_PORT",
+			Value: databaseServicePort,
+		},
+		{
+			Name:  "JAVA_OPTIONS",
+			Value: "-Dspring.profiles.active=openshift",
 		},
 	}
 
@@ -102,9 +75,10 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 			APIVersion: "apps/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
@@ -118,12 +92,12 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            "mysql",
+							Name:            name,
 							Image:           image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
-									ContainerPort: 9001,
+									ContainerPort: 8080,
 									Protocol:      "TCP",
 								},
 							},
@@ -138,10 +112,10 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/",
+										Path: "/api/events",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
-											IntVal: int32(9001),
+											IntVal: int32(8080),
 										},
 										Scheme: corev1.URISchemeHTTP,
 									},
@@ -155,10 +129,10 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/",
+										Path: "/api/events",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
-											IntVal: int32(9001),
+											IntVal: int32(8080),
 										},
 										Scheme: corev1.URISchemeHTTP,
 									},
@@ -169,25 +143,7 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
 							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      name + "-settings",
-									MountPath: "/opt/etherpad/config",
-								},
-							},
 							Env: env,
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: name + "-settings",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: name + "-settings",
-									},
-								},
-							},
 						},
 					},
 				},
@@ -197,92 +153,41 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 }
 
 // NewEventsDatabaseDeployment returns the DB deployment for Events
-func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, namespace string) *appsv1.Deployment {
+func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, secret string) *appsv1.Deployment {
 	image := eventsDatabaseImage
 	labels := GetAppServiceLabels(cr, name)
-
-	/*
-			 - name: POSTGRESQL_USER
-		              valueFrom:
-		                secretKeyRef:
-		                  name: events-database-secret
-		                  key: database-user
-		            - name: POSTGRESQL_PASSWORD
-		              valueFrom:
-		                secretKeyRef:
-		                  name: events-database-secret
-		                  key: database-password
-		            - name: POSTGRESQL_DATABASE
-		              valueFrom:
-		                secretKeyRef:
-		                  name: events-database-secret
-						  key: database-name
-
-
-						kind: Secret
-						apiVersion: v1
-						metadata:
-						name: events-db
-						namespace: gramola-operator-project
-						selfLink: /api/v1/namespaces/gramola-operator-project/secrets/events-db
-						uid: 4d523899-e84a-496b-b4c1-195ef14a9a2e
-						resourceVersion: '1885035'
-						creationTimestamp: '2020-03-14T08:41:18Z'
-						labels:
-							template: postgresql-persistent-template
-							template.openshift.io/template-instance-owner: 63537123-ea07-4413-8d22-683bc1b74fe9
-						annotations:
-							template.openshift.io/expose-database_name: '{.data[''database-name'']}'
-							template.openshift.io/expose-password: '{.data[''database-password'']}'
-							template.openshift.io/expose-username: '{.data[''database-user'']}'
-						data:
-						database-name: c2FtcGxlZGI=
-						database-password: WXJtMWJKQXY2SXNDUk5Jbg==
-						database-user: dXNlcjBKUQ==
-						type: Opaque
-	*/
+	labels["app.kubernetes.io/name"] = "postgresql"
 
 	env := []corev1.EnvVar{
 		{
-			Name: "MYSQL_USER",
+			Name: "POSTGRESQL_USER",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-user",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name,
+						Name: secret,
 					},
 				},
 			},
 		},
 		{
-			Name: "MYSQL_PASSWORD",
+			Name: "POSTGRESQL_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-password",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name,
+						Name: secret,
 					},
 				},
 			},
 		},
 		{
-			Name: "MYSQL_ROOT_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					Key: "database-root-password",
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name,
-					},
-				},
-			},
-		},
-		{
-			Name: "MYSQL_DATABASE",
+			Name: "POSTGRESQL_DATABASE",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-name",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name,
+						Name: secret,
 					},
 				},
 			},
@@ -311,13 +216,13 @@ func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, na
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            "mysql",
+							Name:            "postgresql",
 							Image:           image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
-									Name:          name,
-									ContainerPort: 3306,
+									Name:          "postgresql",
+									ContainerPort: 5432,
 									Protocol:      "TCP",
 								},
 							},
@@ -333,21 +238,31 @@ func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, na
 								Handler: corev1.Handler{
 									Exec: &corev1.ExecAction{
 										Command: []string{
-											"/bin/sh",
-											"-i",
-											"-c",
-											"MYSQL_PWD=\"$MYSQL_PASSWORD\" mysql -h 127.0.0.1 -u $MYSQL_USER -D $MYSQL_DATABASE -e 'SELECT 1'",
+											"/usr/libexec/check-container",
 										},
 									},
 								},
 								InitialDelaySeconds: 5,
-								FailureThreshold:    10,
+								FailureThreshold:    3,
 								TimeoutSeconds:      1,
+							},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{
+											"/usr/libexec/check-container",
+											"--live",
+										},
+									},
+								},
+								InitialDelaySeconds: 120,
+								FailureThreshold:    3,
+								TimeoutSeconds:      10,
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      name + "-data",
-									MountPath: "/var/lib/mysql/data",
+									MountPath: "/var/lib/pgsql/data",
 								},
 							},
 							Env: env,

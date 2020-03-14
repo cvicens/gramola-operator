@@ -1,6 +1,8 @@
 package deployment
 
 import (
+	"fmt"
+
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -14,9 +16,13 @@ const (
 )
 
 // NewGatewayDeployment returns the deployment object for Gateway
-func NewGatewayDeployment(cr *gramolav1alpha1.AppService, name string, namespace string) *appsv1.Deployment {
+func NewGatewayDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, servicesToConnect []string) *appsv1.Deployment {
 	image := gatewayImage
+	annotations := GetGatewayAnnotations(cr)
 	labels := GetAppServiceLabels(cr, name)
+	labels["app.kubernetes.io/name"] = "nodejs"
+
+	fmt.Println(labels)
 
 	env := []corev1.EnvVar{
 		{
@@ -31,9 +37,10 @@ func NewGatewayDeployment(cr *gramolav1alpha1.AppService, name string, namespace
 			APIVersion: "apps/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{MatchLabels: labels},

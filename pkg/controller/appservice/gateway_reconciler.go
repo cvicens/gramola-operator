@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	serviceName = "gateway"
+	gatewayServiceName = "gateway"
 )
 
 // Reconciling Gateway
@@ -26,25 +26,25 @@ func (r *ReconcileAppService) reconcileGateway(instance *gramolav1alpha1.AppServ
 }
 
 func (r *ReconcileAppService) addGateway(instance *gramolav1alpha1.AppService) (reconcile.Result, error) {
-	deployment := _deployment.NewGatewayDeployment(instance, serviceName, instance.Namespace)
+	deployment := _deployment.NewGatewayDeployment(instance, gatewayServiceName, instance.Namespace, []string{0: "events"})
 	if err := r.client.Create(context.TODO(), deployment); err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, err
 	} else if err == nil {
 		log.Info(fmt.Sprintf("Created %s Deployment", deployment.Name))
 	}
 
-	etherpadService := _deployment.NewService(instance, serviceName, instance.Namespace, []string{"http"}, []int32{9001})
-	if err := r.client.Create(context.TODO(), etherpadService); err != nil && !errors.IsAlreadyExists(err) {
+	service := _deployment.NewService(instance, gatewayServiceName, instance.Namespace, []string{"http"}, []int32{9001})
+	if err := r.client.Create(context.TODO(), service); err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, err
 	} else if err == nil {
-		log.Info(fmt.Sprintf("Created %s Service", etherpadService.Name))
+		log.Info(fmt.Sprintf("Created %s Service", service.Name))
 	}
 
-	etherpadRoute := _deployment.NewRoute(instance, "etherpad", instance.Namespace, "etherpad", 9001)
-	if err := r.client.Create(context.TODO(), etherpadRoute); err != nil && !errors.IsAlreadyExists(err) {
+	route := _deployment.NewRoute(instance, "etherpad", instance.Namespace, "etherpad", 9001)
+	if err := r.client.Create(context.TODO(), route); err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, err
 	} else if err == nil {
-		log.Info(fmt.Sprintf("Created %s Route", etherpadRoute.Name))
+		log.Info(fmt.Sprintf("Created %s Route", route.Name))
 	}
 
 	//Success

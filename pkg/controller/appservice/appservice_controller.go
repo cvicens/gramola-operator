@@ -23,7 +23,8 @@ import (
 
 	record "k8s.io/client-go/tools/record"
 
-	// Import GateWay
+	// Route
+	routev1 "github.com/openshift/api/route/v1"
 
 	// For now... blank
 	_ "github.com/redhat/gramola-operator/pkg/util"
@@ -69,6 +70,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
+		return err
+	}
+
+	// register OpenShift Routes in the scheme
+	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
 		return err
 	}
 
@@ -138,6 +144,13 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	// Gateway
 	//////////////////////////
 	if _, err := r.reconcileGateway(instance); err != nil {
+		return r.ManageError(instance, err)
+	}
+
+	//////////////////////////
+	// Events
+	//////////////////////////
+	if _, err := r.reconcileEvents(instance); err != nil {
 		return r.ManageError(instance, err)
 	}
 
