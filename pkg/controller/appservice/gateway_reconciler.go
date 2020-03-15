@@ -33,14 +33,14 @@ func (r *ReconcileAppService) addGateway(instance *gramolav1alpha1.AppService) (
 		log.Info(fmt.Sprintf("Created %s Deployment", deployment.Name))
 	}
 
-	service := _deployment.NewService(instance, gatewayServiceName, instance.Namespace, []string{"http"}, []int32{9001})
+	service := _deployment.NewService(instance, gatewayServiceName, instance.Namespace, []string{"http"}, []int32{8080})
 	if err := r.client.Create(context.TODO(), service); err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, err
 	} else if err == nil {
 		log.Info(fmt.Sprintf("Created %s Service", service.Name))
 	}
 
-	route := _deployment.NewRoute(instance, "etherpad", instance.Namespace, "etherpad", 9001)
+	route := _deployment.NewRoute(instance, gatewayServiceName, instance.Namespace, gatewayServiceName, 8080)
 	if err := r.client.Create(context.TODO(), route); err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, err
 	} else if err == nil {
