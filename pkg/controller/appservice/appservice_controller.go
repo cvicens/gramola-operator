@@ -11,13 +11,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -78,8 +78,52 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	predicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// Check that new and old objects are the expected type
+			_, ok := e.ObjectOld.(*gramolav1alpha1.AppService)
+			if !ok {
+				log.Error(nil, "Update event has no old proper runtime object to update", "event", e)
+				return false
+			}
+			newServiceConfig, ok := e.ObjectNew.(*gramolav1alpha1.AppService)
+			if !ok {
+				log.Error(nil, "Update event has no proper new runtime object for update", "event", e)
+				return false
+			}
+			if !newServiceConfig.Spec.Enabled {
+				log.Error(nil, "Runtime object is not enabled", "event", e)
+				return false
+			}
+
+			// Also check if no change in ResourceGeneration to return false
+			if e.MetaOld == nil {
+				log.Error(nil, "Update event has no old metadata", "event", e)
+				return false
+			}
+			if e.MetaNew == nil {
+				log.Error(nil, "Update event has no new metadata", "event", e)
+				return false
+			}
+			if e.MetaNew.GetGeneration() == e.MetaOld.GetGeneration() {
+				return false
+			}
+
+			return true
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			log.Info("AppService (predicate->CreateFunc)")
+			_, ok := e.Object.(*gramolav1alpha1.AppService)
+			if !ok {
+				return false
+			}
+
+			return true
+		},
+	}
+
 	// Watch for changes to primary resource AppService
-	err = c.Watch(&source.Kind{Type: &gramolav1alpha1.AppService{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &gramolav1alpha1.AppService{}}, &handler.EnqueueRequestForObject{}, predicate)
 	if err != nil {
 		return err
 	}
@@ -154,57 +198,8 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		return r.ManageError(instance, err)
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set AppService instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Nothing else to do
 	return r.ManageSuccess(instance, 0, gramolav1alpha1.NoAction)
-	return reconcile.Result{}, nil
-}
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *gramolav1alpha1.AppService) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
 }
 
 // IsValid checks if our CR is valid or not
