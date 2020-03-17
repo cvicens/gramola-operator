@@ -107,7 +107,6 @@ func (in *AppServiceSpec) DeepCopy() *AppServiceSpec {
 func (in *AppServiceStatus) DeepCopyInto(out *AppServiceStatus) {
 	*out = *in
 	in.ReconcileStatus.DeepCopyInto(&out.ReconcileStatus)
-	in.LastStepTime.DeepCopyInto(&out.LastStepTime)
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]AppServiceCondition, len(*in))

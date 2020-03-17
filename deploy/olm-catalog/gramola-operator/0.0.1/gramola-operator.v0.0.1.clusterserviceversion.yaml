@@ -158,6 +158,12 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - '*'
         serviceAccountName: gramola-operator
     strategy: deployment
   installModes:

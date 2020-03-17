@@ -14,7 +14,8 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
-      description: AppService is the Schema for the appservices API
+      description: AppService is the Schema for the appservices API defines Gramola
+        Backend Services
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -49,6 +50,65 @@ spec:
           type: object
         status:
           description: AppServiceStatus defines the observed state of AppService
+          properties:
+            conditions:
+              items:
+                description: AppServiceCondition defines the desired state
+                properties:
+                  lastTransitionTime:
+                    description: The last time the condition transitioned from one
+                      status to another.
+                    format: date-time
+                    type: string
+                  message:
+                    description: A human readable message indicating details about
+                      the transition.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition.
+                    enum:
+                    - Initialized
+                    - Waiting
+                    - Progressing
+                    - Finalising
+                    - Succeeded
+                    - Failed
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    enum:
+                    - "True"
+                    - "False"
+                    - Unknown
+                    type: string
+                  type:
+                    description: Type of replication controller condition.
+                    enum:
+                    - Promoted
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
+            lastAction:
+              description: ActionType defines the potential actions types
+              type: string
+            lastUpdate:
+              format: date-time
+              type: string
+            reason:
+              type: string
+            status:
+              description: AppServiceConditionStatus defines the potential status
+              enum:
+              - Succeded
+              - Progressing
+              - Failed
+              - "True"
+              type: string
+          required:
+          - lastAction
           type: object
       type: object
   version: v1alpha1

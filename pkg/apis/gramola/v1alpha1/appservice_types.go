@@ -1,8 +1,6 @@
 package v1alpha1
 
 import (
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -68,14 +66,14 @@ type AppServiceCondition struct {
 	// +kubebuilder:validation:Enum=Promoted
 	Type AppServiceConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=AppServiceConditionType"`
 	// Status of the condition, one of True, False, Unknown.
-	// +kubebuilder:validation:Enum=True,False,Unknown
+	// +kubebuilder:validation:Enum=True;False;Unknown
 	Status AppServiceConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
 	// The last time the condition transitioned from one status to another.
 	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,3,opt,name=lastTransitionTime"`
 	// The reason for the condition's last transition.
 	// +optional
-	// +kubebuilder:validation:Enum=Initialized,Waiting,Progressing,Finalising,Succeeded,Failed
+	// +kubebuilder:validation:Enum=Initialized;Waiting;Progressing;Finalising;Succeeded;Failed
 	Reason AppServiceConditionReason `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
 	// A human readable message indicating details about the transition.
 	// +optional
@@ -84,7 +82,7 @@ type AppServiceCondition struct {
 
 // ReconcileStatus defines the reconciliation status
 type ReconcileStatus struct {
-	// +kubebuilder:validation:Enum=Succeded,Progressing,Failed
+	// +kubebuilder:validation:Enum=Succeded;Progressing;Failed;True
 	Status     AppServiceConditionStatus `json:"status,omitempty"`
 	LastUpdate metav1.Time               `json:"lastUpdate,omitempty"`
 	Reason     string                    `json:"reason,omitempty"`
@@ -106,16 +104,8 @@ type AppServiceStatus struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	ReconcileStatus `json:",inline"`
 
-	IsCanaryRunning   bool                  `json:"isCanaryRunning"`
-	CanaryWeight      int32                 `json:"canaryWeight"`
-	CanaryMetricValue float64               `json:"canaryMetricValue"`
-	FailedChecks      int32                 `json:"failedChecks"`
-	Iterations        int32                 `json:"iterations"`
-	LastAppliedSpec   time.Duration         `json:"lastAppliedSpec"`
-	LastPromotedSpec  time.Duration         `json:"lastPromotedSpec"`
-	LastStepTime      metav1.Time           `json:"lastStepTime"`
-	LastAction        ActionType            `json:"lastAction"`
-	Conditions        []AppServiceCondition `json:"conditions,omitempty"` // Used to wait => kubectl wait canary/podinfo --for=condition=promoted
+	LastAction ActionType            `json:"lastAction"`
+	Conditions []AppServiceCondition `json:"conditions,omitempty"` // Used to wait => kubectl wait canary/podinfo --for=condition=promoted
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
