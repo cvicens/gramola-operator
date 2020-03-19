@@ -76,7 +76,7 @@ func (r *ReconcileAppService) addEvents(instance *gramolav1alpha1.AppService) (r
 		r.recorder.Eventf(instance, "Normal", "Service Created", "Created %s Service", databaseService.Name)
 	}
 
-	deployment := _deployment.NewEventsDeployment(instance, eventsServiceName, instance.Namespace, eventsServiceName+"-database", eventsServiceName+"-database", "5342")
+	deployment := _deployment.NewEventsDeployment(instance, eventsServiceName, instance.Namespace, eventsServiceName+"-database", eventsServiceName+"-database", "5432")
 	if err := controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}

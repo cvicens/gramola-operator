@@ -185,6 +185,13 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	//////////////////////////
+	// Events
+	//////////////////////////
+	if _, err := r.reconcileEvents(instance); err != nil {
+		return r.ManageError(instance, err)
+	}
+
+	//////////////////////////
 	// Gateway
 	//////////////////////////
 	if _, err := r.reconcileGateway(instance); err != nil {
@@ -192,9 +199,9 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	//////////////////////////
-	// Events
+	// Frontend
 	//////////////////////////
-	if _, err := r.reconcileEvents(instance); err != nil {
+	if _, err := r.reconcileFrontend(instance); err != nil {
 		return r.ManageError(instance, err)
 	}
 

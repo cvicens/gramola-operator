@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	eventsImage         = "image-registry.openshift-image-registry.svc:5000/gramola-operator-project/events-s2i"
+	//eventsImage         = "image-registry.openshift-image-registry.svc:5000/gramola-operator-project/events-s2i"
+	eventsImage         = "quay.io/cvicensa/gramola-events:0.0.1"
 	eventsDatabaseImage = "image-registry.openshift-image-registry.svc:5000/openshift/postgresql:10"
 )
 
@@ -62,10 +63,6 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 		{
 			Name:  "DB_SERVICE_PORT",
 			Value: databaseServicePort,
-		},
-		{
-			Name:  "JAVA_OPTIONS",
-			Value: "-Dspring.profiles.active=openshift",
 		},
 	}
 

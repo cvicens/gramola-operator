@@ -10,7 +10,11 @@ mv operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu ./bin/operator-sdk
 chmos u+x ./bin/operator-sdk
 
 export PATH=$PATH:$(pwd)/bin
- 
+
+# Quay log in
+
+docker login quay.io
+
 # Set up environment
 cd $GOPATH
 export GO111MODULE=on

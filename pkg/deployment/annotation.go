@@ -6,8 +6,8 @@ import (
 
 // Label Consts
 const (
-	repo = "https://github.com/cvicens/gramola-project-labs"
-	ref  = "ocp-3.10"
+	repo = "https://github.com/cvicens/gramola"
+	ref  = "master"
 )
 
 // GetEventsAnnotations returns a map with the annotations for Events
@@ -24,6 +24,16 @@ func GetEventsAnnotations(cr *gramolav1alpha1.AppService) (labels map[string]str
 func GetGatewayAnnotations(cr *gramolav1alpha1.AppService) (labels map[string]string) {
 	annotations := map[string]string{
 		"app.openshift.io/connects-to": "events",
+		"app.openshift.io/vcs-ref":     ref,
+		"app.openshift.io/vcs-uri":     repo,
+	}
+	return annotations
+}
+
+// GetFrontendAnnotations returns a map with the annotations for Gateway
+func GetFrontendAnnotations(cr *gramolav1alpha1.AppService) (labels map[string]string) {
+	annotations := map[string]string{
+		"app.openshift.io/connects-to": "gateway",
 		"app.openshift.io/vcs-ref":     ref,
 		"app.openshift.io/vcs-uri":     repo,
 	}

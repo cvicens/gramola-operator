@@ -12,16 +12,15 @@ import (
 )
 
 const (
-	//gatewayImage = "image-registry.openshift-image-registry.svc:5000/gramola-operator-project/gateway-s2i"
-	gatewayImage = "quay.io/cvicensa/gramola-gateway:0.0.1"
+	frontendImage = "quay.io/cvicensa/gramola-frontend:0.0.1"
 )
 
-// NewGatewayDeployment returns the deployment object for Gateway
-func NewGatewayDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, servicesToConnect []string) *appsv1.Deployment {
-	image := gatewayImage
-	annotations := GetGatewayAnnotations(cr)
+// NewFrontendDeployment returns the deployment object for Gateway
+func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, servicesToConnect []string) *appsv1.Deployment {
+	image := frontendImage
+	annotations := GetFrontendAnnotations(cr)
 	labels := GetAppServiceLabels(cr, name)
-	labels["app.kubernetes.io/name"] = "java"
+	labels["app.kubernetes.io/name"] = "nodejs"
 
 	fmt.Println(labels)
 
@@ -76,7 +75,7 @@ func NewGatewayDeployment(cr *gramolav1alpha1.AppService, name string, namespace
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/api/events",
+										Path: "/api/health",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
 											IntVal: int32(8080),
@@ -93,7 +92,7 @@ func NewGatewayDeployment(cr *gramolav1alpha1.AppService, name string, namespace
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/api/events",
+										Path: "/api/health",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
 											IntVal: int32(8080),

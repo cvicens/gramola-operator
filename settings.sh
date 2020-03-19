@@ -8,6 +8,6 @@ export API_VERSION="gramola.redhat.com/v1alpha1"
 
 export PROJECT_NAME=${OPERATOR_NAME}-project
 
-export USERNAME=<USERNAME>
+export USERNAME=cvicensa
 
 export OPERATOR_VERSION=0.0.1
