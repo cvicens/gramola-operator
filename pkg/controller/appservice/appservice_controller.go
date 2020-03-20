@@ -1,6 +1,7 @@
 package appservice
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -8,8 +9,9 @@ import (
 
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -21,10 +23,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	record "k8s.io/client-go/tools/record"
+	"k8s.io/client-go/kubernetes/scheme"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/remotecommand"
 
 	// Route
 	routev1 "github.com/openshift/api/route/v1"
+
+	errors "github.com/pkg/errors"
 
 	// For now... blank
 	_ "github.com/redhat/gramola-operator/pkg/util"
@@ -169,7 +177,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	instance := &gramolav1alpha1.AppService{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8s_errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -205,6 +213,13 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		return r.ManageError(instance, err)
 	}
 
+	//////////////////////////
+	// Exec DB script
+	//////////////////////////
+	if _, err := r.ExecDBScripts(request); err != nil {
+		return r.ManageError(instance, err)
+	}
+
 	// Nothing else to do
 	return r.ManageSuccess(instance, 0, gramolav1alpha1.NoAction)
 }
@@ -215,14 +230,14 @@ func (r *ReconcileAppService) IsValid(obj metav1.Object) (bool, error) {
 
 	instance, ok := obj.(*gramolav1alpha1.AppService)
 	if !ok {
-		err := errors.NewBadRequest(errorNotAppServiceObject)
+		err := k8s_errors.NewBadRequest(errorNotAppServiceObject)
 		log.Error(err, errorNotAppServiceObject)
 		return false, err
 	}
 
 	// Check Alias
 	if len(instance.Spec.Alias) > 0 && instance.Spec.Alias != "Gramola" && instance.Spec.Alias != "Gramophone" {
-		err := errors.NewBadRequest(errorAlias)
+		err := k8s_errors.NewBadRequest(errorAlias)
 		log.Error(err, errorAlias)
 		return false, err
 	}
@@ -235,7 +250,9 @@ func (r *ReconcileAppService) ManageError(obj metav1.Object, issue error) (recon
 	log.Error(issue, "Error managed")
 	runtimeObj, ok := (obj).(runtime.Object)
 	if !ok {
-		log.Error(errors.NewBadRequest("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
+		err := k8s_errors.NewBadRequest("not a runtime.Object")
+		log.Error(err, "passed object was not a runtime.Object", "object", obj)
+		r.recorder.Event(runtimeObj, "Error", "ProcessingError", err.Error())
 		return reconcile.Result{}, nil
 	}
 	var retryInterval time.Duration
@@ -277,7 +294,7 @@ func (r *ReconcileAppService) ManageSuccess(obj metav1.Object, requeueAfter time
 	log.Info(fmt.Sprintf("===> ManageSuccess with requeueAfter: %d from: %s", requeueAfter, action))
 	runtimeObj, ok := (obj).(runtime.Object)
 	if !ok {
-		log.Error(errors.NewBadRequest("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
+		log.Error(k8s_errors.NewBadRequest("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
 		return reconcile.Result{}, nil
 	}
 	if instance, ok := (obj).(*gramolav1alpha1.AppService); ok {
@@ -313,4 +330,83 @@ func (r *ReconcileAppService) ManageSuccess(obj metav1.Object, requeueAfter time
 		}, nil
 	}
 	return reconcile.Result{}, nil
+}
+
+// ExecDBScripts runs a script in the first 'Events' database pod found (and ready)
+func (r *ReconcileAppService) ExecDBScripts(request reconcile.Request) (reconcile.Result, error) {
+	// List all pods owned by this PodSet instance
+	podList := &corev1.PodList{}
+	lbs := map[string]string{
+		"component": EventsDatabaseServiceName,
+	}
+	labelSelector := labels.SelectorFromSet(lbs)
+	listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
+	if err := r.client.List(context.TODO(), podList, listOps); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	//log.Info(fmt.Sprintf("podList: %s", podList))
+
+	// Count the pods that are pending or running as available
+	var ready []corev1.Pod
+	for _, pod := range podList.Items {
+		log.Info(fmt.Sprintf("pod: %s phase: %s", pod.Name, pod.Status.Phase))
+		if pod.Status.Phase == corev1.PodRunning {
+			ready = append(ready, pod)
+			break
+		}
+	}
+
+	if len(ready) > 0 {
+		if _out, _err, err := r.ExecuteRemoteCommand(&ready[0], "psql --version"); err != nil {
+			return reconcile.Result{}, err
+		} else {
+			log.Info(fmt.Sprintf("stdout: %s\nstderr: %s", _out, _err))
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// ExecuteRemoteCommand executes a remote shell command on the given pod
+// returns the output from stdout and stderr
+func (r *ReconcileAppService) ExecuteRemoteCommand(pod *corev1.Pod, command string) (string, string, error) {
+	kubeCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	)
+	restCfg, err := kubeCfg.ClientConfig()
+	if err != nil {
+		return "", "", err
+	}
+	coreClient, err := corev1client.NewForConfig(restCfg)
+	if err != nil {
+		return "", "", err
+	}
+
+	buf := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	request := coreClient.RESTClient().
+		Post().
+		Namespace(pod.Namespace).
+		Resource("pods").
+		Name(pod.Name).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Command: []string{"/bin/bash", "-c", command},
+			Stdin:   false,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     true,
+		}, scheme.ParameterCodec)
+	exec, err := remotecommand.NewSPDYExecutor(restCfg, "POST", request.URL())
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdout: buf,
+		Stderr: errBuf,
+	})
+	if err != nil {
+		return "", "", errors.Wrapf(err, "Failed executing command %s on %v/%v", command, pod.Namespace, pod.Name)
+	}
+
+	return buf.String(), errBuf.String(), nil
 }

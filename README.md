@@ -1,3 +1,6 @@
+# Being grateful first
+Part of the code borrowed from https://github.com/mcouliba/openshift-workshop-operator
+
 # Installing the Operator SDK
 export RELEASE_VERSION=v0.15.1
 
