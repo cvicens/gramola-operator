@@ -56,7 +56,7 @@ type AppServiceConditionStatus string
 const (
 	AppServiceConditionStatusTrue    AppServiceConditionStatus = "True"
 	AppServiceConditionStatusFalse   AppServiceConditionStatus = "False"
-	AppServiceConditionStatusFailure AppServiceConditionStatus = "Failure"
+	AppServiceConditionStatusFailed  AppServiceConditionStatus = "Failed"
 	AppServiceConditionStatusUnknown AppServiceConditionStatus = "Unknown"
 )
 

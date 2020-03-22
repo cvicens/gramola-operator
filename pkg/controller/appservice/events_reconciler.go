@@ -3,6 +3,9 @@ package appservice
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
 
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
 	_deployment "github.com/redhat/gramola-operator/pkg/deployment"
@@ -16,6 +19,16 @@ const (
 	EventsServiceName         = "events"
 	EventsDatabaseServiceName = EventsServiceName + "-database"
 )
+
+// Constants to locate the scripts to update the database
+const (
+	DbScriptsBaseEnvVarName = "DB_SCRIPTS_BASE_DIR"
+	DbUpdateScriptName      = "db-update.sql"
+	DbScriptsMountPoint     = "/operator/scripts"
+)
+
+// DbScriptsBasePath point to the directory where the scripts to update the database should be
+var DbScriptsBasePath = os.Getenv(DbScriptsBaseEnvVarName) + "/db"
 
 // Reconciling Events
 func (r *ReconcileAppService) reconcileEvents(instance *gramolav1alpha1.AppService) (reconcile.Result, error) {
@@ -45,6 +58,22 @@ func (r *ReconcileAppService) addEvents(instance *gramolav1alpha1.AppService) (r
 		r.recorder.Eventf(instance, "Normal", "Secret Created", "Created %s Secret", databaseSecret.Name)
 	}
 
+	scripts := make(map[string]string)
+	if dbUpdateScriptData, err := readFile(DbUpdateScriptName); err == nil {
+		dbUpdateScriptDataReplaced := strings.Replace(dbUpdateScriptData, "{{DB_USERNAME}}", databaseCredentials["database-user"], -1)
+		scripts[DbUpdateScriptName] = dbUpdateScriptDataReplaced
+	}
+
+	//log.Info(fmt.Sprintf("scripts %s", scripts))
+
+	databaseConfigMap := _deployment.NewConfigMapFromData(instance, EventsDatabaseServiceName+"-scripts", instance.Namespace, scripts)
+	if err := r.client.Create(context.TODO(), databaseConfigMap); err != nil && !errors.IsAlreadyExists(err) {
+		return reconcile.Result{}, err
+	} else if err == nil {
+		log.Info(fmt.Sprintf("Created %s ConfigMap", databaseConfigMap.Name))
+		r.recorder.Eventf(instance, "Normal", "ConfigMap Created", "Created %s ConfigMap", databaseConfigMap.Name)
+	}
+
 	databasePersistentVolumeClaim := _deployment.NewPersistentVolumeClaim(instance, EventsDatabaseServiceName, instance.Namespace, "512Mi")
 	if err := controllerutil.SetControllerReference(instance, databasePersistentVolumeClaim, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -56,7 +85,8 @@ func (r *ReconcileAppService) addEvents(instance *gramolav1alpha1.AppService) (r
 		r.recorder.Eventf(instance, "Normal", "PVC Created", "Created %s Persistent Volume Claim", databasePersistentVolumeClaim.Name)
 	}
 
-	databaseDeployment := _deployment.NewEventsDatabaseDeployment(instance, EventsDatabaseServiceName, instance.Namespace, EventsDatabaseServiceName)
+	// Adds environment variables from the secret values passed and also mounts a volume with the configmap also passed in
+	databaseDeployment := _deployment.NewEventsDatabaseDeployment(instance, EventsDatabaseServiceName, instance.Namespace, databaseSecret.Name, databaseConfigMap.Name, DbScriptsMountPoint)
 	if err := controllerutil.SetControllerReference(instance, databaseDeployment, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -113,4 +143,15 @@ func (r *ReconcileAppService) addEvents(instance *gramolav1alpha1.AppService) (r
 
 	//Success
 	return reconcile.Result{}, nil
+}
+
+func readFile(fileName string) (string, error) {
+	filePath := DbScriptsBasePath + "/" + fileName
+	log.Info(fmt.Sprintf("Reading file %s", fileName))
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return "", err
+	}
+	return string(data), nil
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,6 +89,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	predicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			log.Info("AppService (predicate->UpdateEvent) " + e.MetaNew.GetName())
 			// Check that new and old objects are the expected type
 			_, ok := e.ObjectOld.(*gramolav1alpha1.AppService)
 			if !ok {
@@ -120,7 +122,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			return true
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			log.Info("AppService (predicate->CreateFunc)")
+			log.Info("AppService (predicate->CreateFunc) " + e.Meta.GetName())
 			_, ok := e.Object.(*gramolav1alpha1.AppService)
 			if !ok {
 				return false
@@ -139,6 +141,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner AppService
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &gramolav1alpha1.AppService{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// TODO(user): Modify this to be the types you create that are owned by the primary resource
+	// Watch for changes to secondary resource Pods and requeue the owner AppService
+	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &gramolav1alpha1.AppService{},
 	})
@@ -263,7 +275,7 @@ func (r *ReconcileAppService) ManageError(obj metav1.Object, issue error) (recon
 		status := gramolav1alpha1.ReconcileStatus{
 			LastUpdate: metav1.Now(),
 			Reason:     issue.Error(),
-			Status:     gramolav1alpha1.AppServiceConditionStatusFailure,
+			Status:     gramolav1alpha1.AppServiceConditionStatusFailed,
 		}
 		instance.Status.ReconcileStatus = status
 		err := r.client.Status().Update(context.Background(), runtimeObj)
@@ -352,13 +364,18 @@ func (r *ReconcileAppService) ExecDBScripts(request reconcile.Request) (reconcil
 	for _, pod := range podList.Items {
 		log.Info(fmt.Sprintf("pod: %s phase: %s", pod.Name, pod.Status.Phase))
 		if pod.Status.Phase == corev1.PodRunning {
-			ready = append(ready, pod)
-			break
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if containerStatus.Name == "postgresql" && containerStatus.Ready { // TODO constant for "postgresql"
+					ready = append(ready, pod)
+					break
+				}
+			}
 		}
 	}
 
 	if len(ready) > 0 {
-		if _out, _err, err := r.ExecuteRemoteCommand(&ready[0], "psql --version"); err != nil {
+		filePath := DbScriptsMountPoint + "/" + DbUpdateScriptName
+		if _out, _err, err := r.ExecuteRemoteCommand(&ready[0], "psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f "+filePath); err != nil {
 			return reconcile.Result{}, err
 		} else {
 			log.Info(fmt.Sprintf("stdout: %s\nstderr: %s", _out, _err))

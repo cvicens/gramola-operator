@@ -16,7 +16,7 @@ const (
 )
 
 // NewEventsDeployment returns the deployment object for Events
-func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, secret string, databaseServiceName string, databaseServicePort string) *appsv1.Deployment {
+func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, secretName string, databaseServiceName string, databaseServicePort string) *appsv1.Deployment {
 	image := eventsImage
 	annotations := GetEventsAnnotations(cr)
 	labels := GetAppServiceLabels(cr, name)
@@ -29,7 +29,7 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-user",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret,
+						Name: secretName,
 					},
 				},
 			},
@@ -40,7 +40,7 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-password",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret,
+						Name: secretName,
 					},
 				},
 			},
@@ -51,7 +51,7 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-name",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret,
+						Name: secretName,
 					},
 				},
 			},
@@ -150,7 +150,10 @@ func NewEventsDeployment(cr *gramolav1alpha1.AppService, name string, namespace 
 }
 
 // NewEventsDatabaseDeployment returns the DB deployment for Events
-func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, secret string) *appsv1.Deployment {
+func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, namespace string,
+	secretName string,
+	scriptsConfigMapName string,
+	scriptsConfigMapMountPoint string) *appsv1.Deployment {
 	image := eventsDatabaseImage
 	labels := GetAppServiceLabels(cr, name)
 	labels["app.kubernetes.io/name"] = "postgresql"
@@ -162,7 +165,7 @@ func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, na
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-user",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret,
+						Name: secretName,
 					},
 				},
 			},
@@ -173,7 +176,7 @@ func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, na
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-password",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret,
+						Name: secretName,
 					},
 				},
 			},
@@ -184,7 +187,7 @@ func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, na
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "database-name",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret,
+						Name: secretName,
 					},
 				},
 			},
@@ -261,6 +264,10 @@ func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, na
 									Name:      name + "-data",
 									MountPath: "/var/lib/pgsql/data",
 								},
+								{
+									Name:      scriptsConfigMapName,
+									MountPath: scriptsConfigMapMountPoint,
+								},
 							},
 							Env: env,
 						},
@@ -271,6 +278,16 @@ func NewEventsDatabaseDeployment(cr *gramolav1alpha1.AppService, name string, na
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: name,
+								},
+							},
+						},
+						{
+							Name: scriptsConfigMapName,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: scriptsConfigMapName,
+									},
 								},
 							},
 						},

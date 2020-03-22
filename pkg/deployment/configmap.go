@@ -7,7 +7,8 @@ import (
 )
 
 // NewConfigMapFromData returns a ConfigMap given a data object
-func NewConfigMapFromData(cr *gramolav1alpha1.AppService, name string, namespace string, labels map[string]string, data map[string]string) *corev1.ConfigMap {
+func NewConfigMapFromData(cr *gramolav1alpha1.AppService, name string, namespace string, data map[string]string) *corev1.ConfigMap {
+	labels := GetAppServiceLabels(cr, name)
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",

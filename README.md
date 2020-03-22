@@ -421,8 +421,14 @@ func init() {
 ##```
 
 
+## Add /db and files...
+TODO
 
+## ENV VAR
 
+```sh
+export DB_SCRIPTS_BASE_DIR=$(pwd)
+```
 
 git add .
 git commit -a -m "new"
