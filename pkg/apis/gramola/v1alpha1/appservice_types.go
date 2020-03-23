@@ -97,12 +97,26 @@ const (
 	NoAction     ActionType = "NoAction"
 )
 
+// DatabaseUpdateStatus defines the potential status of a database update
+type DatabaseUpdateStatus string
+
+// AppServiceConditionStatuses defined here
+const (
+	DatabaseUpdateStatusSucceeded DatabaseUpdateStatus = "Succeeded"
+	DatabaseUpdateStatusFailed    DatabaseUpdateStatus = "Failed"
+	DatabaseUpdateStatusUnknown   DatabaseUpdateStatus = "Unknown"
+)
+
 // AppServiceStatus defines the observed state of AppService
 type AppServiceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	ReconcileStatus `json:",inline"`
+
+	// Indicates if the Events Database has been updated or not
+	// +kubebuilder:validation:Enum=Unknown;Succeeded;Failed
+	EventsDatabaseUpdated DatabaseUpdateStatus `json:"eventsDatabaseUpdated,omitempty"`
 
 	LastAction ActionType            `json:"lastAction"`
 	Conditions []AppServiceCondition `json:"conditions,omitempty"` // Used to wait => kubectl wait canary/podinfo --for=condition=promoted

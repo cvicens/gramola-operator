@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
@@ -87,7 +88,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	predicate := predicate.Funcs{
+	appServicePredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			log.Info("AppService (predicate->UpdateEvent) " + e.MetaNew.GetName())
 			// Check that new and old objects are the expected type
@@ -133,9 +134,47 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource AppService
-	err = c.Watch(&source.Kind{Type: &gramolav1alpha1.AppService{}}, &handler.EnqueueRequestForObject{}, predicate)
+	err = c.Watch(&source.Kind{Type: &gramolav1alpha1.AppService{}}, &handler.EnqueueRequestForObject{}, appServicePredicate)
 	if err != nil {
 		return err
+	}
+
+	podPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			log.Info("Pod (predicate->UpdateEvent) " + e.MetaNew.GetName())
+
+			// Ignore if not events-database-*
+			if !strings.Contains(e.MetaNew.GetName(), "events-database") {
+				log.Info("Pod is not events-database - [IGNORED]")
+				return false
+			}
+
+			// Check that new and old objects are the expected type
+			_, ok := e.ObjectOld.(*corev1.Pod)
+			if !ok {
+				log.Error(nil, "Update event has no old proper runtime object to update", "event", e)
+				return false
+			}
+			newPod, ok := e.ObjectNew.(*corev1.Pod)
+			if !ok {
+				log.Error(nil, "Update event has no proper new runtime object for update", "event", e)
+				return false
+			}
+			if newPod.Status.Phase != corev1.PodRunning && newPod.Status.Phase != corev1.PodSucceeded {
+				log.Info("Pod is not Running - [IGNORED]", "event", e.MetaNew.GetName())
+				return false
+			}
+
+			return true
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			log.Info("Pod (predicate->CreateFunc) " + e.Meta.GetName() + "- [IGNORED]")
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			log.Info("Pod (predicate->DeleteEvent) " + e.Meta.GetName() + "- [IGNORED]")
+			return false
+		},
 	}
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
@@ -143,7 +182,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &gramolav1alpha1.AppService{},
-	})
+	}, podPredicate)
 	if err != nil {
 		return err
 	}
@@ -199,9 +238,25 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
+	log.Info(fmt.Sprintf("Status %s", instance.Status))
+
 	// Validate the CR instance
-	if ok, err := r.IsValid(instance); !ok {
+	if ok, err := r.isValid(instance); !ok {
 		return r.ManageError(instance, err)
+	}
+
+	// Now that we have a target let's initialize the CR instance. Updates Spec.Initilized in `instance`
+	if initialized, err := r.isInitialized(instance); err == nil && !initialized {
+		err := r.client.Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, errorUnableToUpdateInstance, "instance", instance)
+			return r.ManageError(instance, err)
+		}
+		return reconcile.Result{}, nil
+	} else {
+		if err != nil {
+			return r.ManageError(instance, err)
+		}
 	}
 
 	//////////////////////////
@@ -226,19 +281,36 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	//////////////////////////
-	// Exec DB script
+	// Update Events DataBase
 	//////////////////////////
-	if _, err := r.ExecDBScripts(request); err != nil {
-		return r.ManageError(instance, err)
+	log.Info(fmt.Sprintf("Status before Database Update %s", instance.Status))
+	if !(instance.Status.EventsDatabaseUpdated == gramolav1alpha1.DatabaseUpdateStatusSucceeded) {
+		if dataBaseUpdated, err := r.UpdateEventsDatabase(request); err != nil {
+			log.Error(err, "error DB update", "instance", instance)
+			// Update Status
+			instance.Status.EventsDatabaseUpdated = gramolav1alpha1.DatabaseUpdateStatusFailed
+			return r.ManageError(instance, err)
+		} else {
+			if dataBaseUpdated {
+				log.Info(fmt.Sprintf("dataBaseUpdated ====> %s", instance.Status))
+				// Update Status
+				instance.Status.EventsDatabaseUpdated = gramolav1alpha1.DatabaseUpdateStatusSucceeded
+				err := r.client.Update(context.Background(), instance)
+				if err != nil {
+					log.Error(err, errorUnableToUpdateInstance, "instance", instance)
+					return r.ManageError(instance, err)
+				}
+			}
+		}
 	}
 
 	// Nothing else to do
 	return r.ManageSuccess(instance, 0, gramolav1alpha1.NoAction)
 }
 
-// IsValid checks if our CR is valid or not
-func (r *ReconcileAppService) IsValid(obj metav1.Object) (bool, error) {
-	//log.Info(fmt.Sprintf("IsValid? %s", obj))
+// isValid checks if our CR is valid or not
+func (r *ReconcileAppService) isValid(obj metav1.Object) (bool, error) {
+	//log.Info(fmt.Sprintf("isValid? %s", obj))
 
 	instance, ok := obj.(*gramolav1alpha1.AppService)
 	if !ok {
@@ -255,6 +327,24 @@ func (r *ReconcileAppService) IsValid(obj metav1.Object) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// IsInitialized checks if our CR has been initialized or not
+func (r *ReconcileAppService) isInitialized(obj metav1.Object) (bool, error) {
+	instance, ok := obj.(*gramolav1alpha1.AppService)
+	if !ok {
+		err := k8s_errors.NewBadRequest(errorNotAppServiceObject)
+		log.Error(err, errorNotAppServiceObject)
+		return false, err
+	}
+	if instance.Spec.Initialized {
+		return true, nil
+	}
+
+	// TODO add a Finalizer...
+	// util.AddFinalizer(mycrd, controllerName)
+	instance.Spec.Initialized = true
+	return false, nil
 }
 
 // ManageError manages an error object, an instance of the CR is passed along
@@ -344,9 +434,9 @@ func (r *ReconcileAppService) ManageSuccess(obj metav1.Object, requeueAfter time
 	return reconcile.Result{}, nil
 }
 
-// ExecDBScripts runs a script in the first 'Events' database pod found (and ready)
-func (r *ReconcileAppService) ExecDBScripts(request reconcile.Request) (reconcile.Result, error) {
-	// List all pods owned by this PodSet instance
+// UpdateEventsDatabase runs a script in the first 'Events' database pod found (and ready) returns true if the script was run succesfully
+func (r *ReconcileAppService) UpdateEventsDatabase(request reconcile.Request) (bool, error) {
+	// List all pods of the Events Database
 	podList := &corev1.PodList{}
 	lbs := map[string]string{
 		"component": EventsDatabaseServiceName,
@@ -354,7 +444,7 @@ func (r *ReconcileAppService) ExecDBScripts(request reconcile.Request) (reconcil
 	labelSelector := labels.SelectorFromSet(lbs)
 	listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
 	if err := r.client.List(context.TODO(), podList, listOps); err != nil {
-		return reconcile.Result{}, err
+		return false, err
 	}
 
 	//log.Info(fmt.Sprintf("podList: %s", podList))
@@ -376,13 +466,18 @@ func (r *ReconcileAppService) ExecDBScripts(request reconcile.Request) (reconcil
 	if len(ready) > 0 {
 		filePath := DbScriptsMountPoint + "/" + DbUpdateScriptName
 		if _out, _err, err := r.ExecuteRemoteCommand(&ready[0], "psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f "+filePath); err != nil {
-			return reconcile.Result{}, err
+			return false, err
 		} else {
 			log.Info(fmt.Sprintf("stdout: %s\nstderr: %s", _out, _err))
+			if len(_err) > 0 {
+				return false, errors.Wrapf(err, "Failed executing script %s on %s", filePath, EventsDatabaseServiceName)
+			} else {
+				return true, nil
+			}
 		}
 	}
 
-	return reconcile.Result{}, nil
+	return false, nil
 }
 
 // ExecuteRemoteCommand executes a remote shell command on the given pod
