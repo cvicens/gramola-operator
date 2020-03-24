@@ -8,7 +8,7 @@ metadata:
           "apiVersion": "gramola.redhat.com/v1alpha1",
           "kind": "AppService",
           "metadata": {
-            "name": "example-appservice"
+            "name": "gramola"
           },
           "spec": {
             "enabled": true
@@ -87,6 +87,7 @@ spec:
           - ""
           resources:
           - pods
+          - pods/exec
           - services
           - services/finalizers
           - endpoints

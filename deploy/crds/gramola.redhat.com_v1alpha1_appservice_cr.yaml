@@ -1,6 +1,6 @@
 apiVersion: gramola.redhat.com/v1alpha1
 kind: AppService
 metadata:
-  name: example-appservice
+  name: gramola
 spec:
   enabled: true

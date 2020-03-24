@@ -41,7 +41,7 @@ import (
 )
 
 // Operator Name
-const operatorName = "KharonOperator"
+const operatorName = "gramola-operator"
 
 // Best practices
 const controllerName = "controller-appservice"

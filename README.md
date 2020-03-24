@@ -287,6 +287,9 @@ We have to provide keywords, maintainers, provider... and also an icon ;-)
 
 ```
 export CSV_PATH=./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml
+
+yq w -i -s update_instructions.yaml ${CSV_PATH}
+
 yq d -i ${CSV_PATH} spec.provider
 yq w -i ${CSV_PATH} spec.provider.name "ACME Inc."
 yq w -i ${CSV_PATH} spec.description "Gramola Operator by ACME Inc."

@@ -91,6 +91,13 @@ spec:
                 - type
                 type: object
               type: array
+            eventsDatabaseUpdated:
+              description: Indicates if the Events Database has been updated or not
+              enum:
+              - Unknown
+              - Succeeded
+              - Failed
+              type: string
             lastAction:
               description: ActionType defines the potential actions types
               type: string
