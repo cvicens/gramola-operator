@@ -288,24 +288,7 @@ We have to provide keywords, maintainers, provider... and also an icon ;-)
 ```
 export CSV_PATH=./deploy/olm-catalog/gramola-operator/0.0.1/gramola-operator.v0.0.1.clusterserviceversion.yaml
 
-yq w -i -s update_instructions.yaml ${CSV_PATH}
-
-yq d -i ${CSV_PATH} spec.provider
-yq w -i ${CSV_PATH} spec.provider.name "ACME Inc."
-yq w -i ${CSV_PATH} spec.description "Gramola Operator by ACME Inc."
-yq w -i ${CSV_PATH} spec.keywords[+] "gramola"
-yq w -i ${CSV_PATH} spec.keywords[+] "backend"
-yq w -i ${CSV_PATH} spec.icon[+].base64data $(cat gramola.svg | base64)
-yq w -i ${CSV_PATH} spec.icon[0].mediatype image/svg+xml
-yq w -i ${CSV_PATH} spec.maintainers[+].email "admin@gramola.com"
-yq w -i ${CSV_PATH} spec.maintainers[0].name "ACME Inc."
-
-yq w -i ${CSV_PATH} metadata.annotations.createdAt "2020-03-12T02:45:00Z"
-yq w -i ${CSV_PATH} metadata.annotations.categories "Other"
-yq w -i ${CSV_PATH} metadata.annotations.certified --tag '!!str' false
-yq w -i ${CSV_PATH} metadata.annotations.support: ACME
-yq w -i ${CSV_PATH} metadata.annotations.containerImage "quay.io/cvicensa/gramola-operator:0.0.1"
-yq w -i ${CSV_PATH} metadata.annotations.description "Gramola Operator deploys the backend needed to support Gramola mobile App."
+yq w -i -s update_csv_instructions.yaml ${CSV_PATH}
 ```
 
 All these changes (user defined) are reflected directly in the CSV generated for version 0.0.1 and will be kept if you re-generate the CSV for the same version over and over.
@@ -536,6 +519,11 @@ redhat-operators      appregistry   https://quay.io/cnr   redhat-operators      
 If you go to the Operator Hub you should see `Other` category... etc.
 
 # Troubleshooting 
+Have a look here
+
+oc logs -f acme-operators-85cf48968d-9mgcg -n openshift-operator-lifecycle-manager 
+
+Or here
 
 oc logs -f catalog-operator-7fccd6877f-phh9p -n openshift-operator-lifecycle-manager 
 
