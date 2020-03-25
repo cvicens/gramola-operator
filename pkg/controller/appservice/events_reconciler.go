@@ -23,7 +23,7 @@ const (
 // Constants to locate the scripts to update the database
 const (
 	DbScriptsBaseEnvVarName = "DB_SCRIPTS_BASE_DIR"
-	DbUpdateScriptName      = "db-update.sql"
+	DbUpdateScriptName      = "events-database-update-0.0.1.sql"
 	DbScriptsMountPoint     = "/operator/scripts"
 )
 
@@ -67,6 +67,9 @@ func (r *ReconcileAppService) addEvents(instance *gramolav1alpha1.AppService) (r
 	//log.Info(fmt.Sprintf("scripts %s", scripts))
 
 	databaseConfigMap := _deployment.NewConfigMapFromData(instance, EventsDatabaseServiceName+"-scripts", instance.Namespace, scripts)
+	if err := controllerutil.SetControllerReference(instance, databaseConfigMap, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 	if err := r.client.Create(context.TODO(), databaseConfigMap); err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, err
 	} else if err == nil {
