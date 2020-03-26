@@ -518,6 +518,14 @@ redhat-operators      appregistry   https://quay.io/cnr   redhat-operators      
 
 If you go to the Operator Hub you should see `Other` category... etc.
 
+
+# Deploy your operator
+
+
+# Create some sample data
+
+
+
 # Troubleshooting 
 Have a look here
 
