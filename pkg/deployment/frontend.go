@@ -1,8 +1,6 @@
 package deployment
 
 import (
-	"fmt"
-
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +10,7 @@ import (
 )
 
 const (
-	frontendImage = "quay.io/cvicensa/gramola-frontend:0.0.1"
+	frontendImage = "quay.io/cvicensa/gramola-frontend:0.0.2"
 )
 
 // NewFrontendDeployment returns the deployment object for Gateway
@@ -21,8 +19,6 @@ func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespac
 	annotations := GetFrontendAnnotations(cr)
 	labels := GetAppServiceLabels(cr, name)
 	labels["app.kubernetes.io/name"] = "nodejs"
-
-	fmt.Println(labels)
 
 	env := []corev1.EnvVar{
 		{

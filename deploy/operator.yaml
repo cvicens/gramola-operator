@@ -16,7 +16,7 @@ spec:
       containers:
         - name: gramola-operator
           # Replace this with the built image name
-          image: quay.io/cvicensa/gramola-operator-image:0.0.1
+          image: quay.io/cvicensa/gramola-operator-image:0.0.2
           command:
           - gramola-operator
           imagePullPolicy: Always

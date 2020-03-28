@@ -22,6 +22,7 @@ AUTH_TOKEN=$(curl -sH "Content-Type: application/json" \
 
 source ./venv/bin/activate
 
+operator-courier push ./deploy/olm-catalog/gramola-operator cvicensa gramola-operator "0.0.1" "${AUTH_TOKEN}" 
 operator-courier push ./deploy/olm-catalog/gramola-operator cvicensa gramola-operator ${OPERATOR_VERSION} "${AUTH_TOKEN}" 
 
 deactivate

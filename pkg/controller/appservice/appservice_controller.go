@@ -9,12 +9,15 @@ import (
 	"time"
 
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
+	_deployment "github.com/redhat/gramola-operator/pkg/deployment"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -439,7 +442,7 @@ func (r *ReconcileAppService) UpdateEventsDatabase(request reconcile.Request) (b
 	// List all pods of the Events Database
 	podList := &corev1.PodList{}
 	lbs := map[string]string{
-		"component": EventsDatabaseServiceName,
+		"component": _deployment.EventsDatabaseServiceName,
 	}
 	labelSelector := labels.SelectorFromSet(lbs)
 	listOps := &client.ListOptions{Namespace: request.Namespace, LabelSelector: labelSelector}
@@ -455,7 +458,7 @@ func (r *ReconcileAppService) UpdateEventsDatabase(request reconcile.Request) (b
 		log.Info(fmt.Sprintf("pod: %s phase: %s", pod.Name, pod.Status.Phase))
 		if pod.Status.Phase == corev1.PodRunning {
 			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.Name == "postgresql" && containerStatus.Ready { // TODO constant for "postgresql"
+				if containerStatus.Name == _deployment.EventsDatabaseServiceName && containerStatus.Ready { // TODO constant for "postgresql"
 					ready = append(ready, pod)
 					break
 				}
@@ -464,13 +467,13 @@ func (r *ReconcileAppService) UpdateEventsDatabase(request reconcile.Request) (b
 	}
 
 	if len(ready) > 0 {
-		filePath := DbScriptsMountPoint + "/" + DbUpdateScriptName
+		filePath := _deployment.EventsDatabaseScriptsMountPath + "/" + _deployment.EventsDatabaseUpdateScriptName
 		if _out, _err, err := r.ExecuteRemoteCommand(&ready[0], "psql -U $POSTGRESQL_USER $POSTGRESQL_DATABASE -f "+filePath); err != nil {
 			return false, err
 		} else {
 			log.Info(fmt.Sprintf("stdout: %s\nstderr: %s", _out, _err))
 			if len(_err) > 0 {
-				return false, errors.Wrapf(err, "Failed executing script %s on %s", filePath, EventsDatabaseServiceName)
+				return false, errors.Wrapf(err, "Failed executing script %s on %s", filePath, _deployment.EventsDatabaseServiceName)
 			} else {
 				return true, nil
 			}

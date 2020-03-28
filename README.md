@@ -529,7 +529,7 @@ If you go to the Operator Hub you should see `Other` category... etc.
 # Troubleshooting 
 Have a look here
 
-oc logs -f acme-operators-85cf48968d-9mgcg -n openshift-operator-lifecycle-manager 
+oc logs -f acme-operators-85cf48968d-9mgcg -n openshift-marketplace
 
 Or here
 

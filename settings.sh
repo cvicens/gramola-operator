@@ -10,4 +10,4 @@ export PROJECT_NAME=${OPERATOR_NAME}-project
 
 export USERNAME=cvicensa
 
-export OPERATOR_VERSION=0.0.1
+export OPERATOR_VERSION=0.0.2

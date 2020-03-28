@@ -1,4 +1,4 @@
-GATEWAY_HOST="http://gateway-gramola-olm-test.apps.cluster-gramola-a188.gramola-a188.example.opentlc.com"
+GATEWAY_HOST="http://gateway-gramola-operator-project.apps.cluster-gramola-a188.gramola-a188.example.opentlc.com"
 
 DATE=$(date "+%Y-%m-%d")
 
