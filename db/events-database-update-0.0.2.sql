@@ -29,6 +29,7 @@ BEGIN
             artist CHARACTER VARYING(255),
             city CHARACTER VARYING(255),
             country CHARACTER VARYING(255),
+            date CHARACTER VARYING(255),
             start_date CHARACTER VARYING(255),
             end_date CHARACTER VARYING(255),
             description CHARACTER VARYING(255),

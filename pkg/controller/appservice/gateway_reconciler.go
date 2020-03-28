@@ -72,17 +72,6 @@ func (r *ReconcileAppService) addGateway(instance *gramolav1alpha1.AppService) (
 		return reconcile.Result{}, err
 	}
 
-	//service := _deployment.NewService(instance, gatewayServiceName, instance.Namespace, []string{"http"}, []int32{8080})
-	//if err := controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
-	//	return reconcile.Result{}, err
-	//}
-	//if err := r.client.Create(context.TODO(), service); err != nil && !errors.IsAlreadyExists(err) {
-	//	return reconcile.Result{}, err
-	//} else if err == nil {
-	//	log.Info(fmt.Sprintf("Created %s Service", service.Name))
-	//	r.recorder.Eventf(instance, "Normal", "Service Created", "Created %s Service", service.Name)
-	//}
-
 	if gatewayRoute, err := _deployment.NewGatewayRoute(instance, r.scheme); err == nil {
 		if err := r.client.Create(context.TODO(), gatewayRoute); err != nil {
 			if errors.IsAlreadyExists(err) {
@@ -103,17 +92,6 @@ func (r *ReconcileAppService) addGateway(instance *gramolav1alpha1.AppService) (
 	} else {
 		return reconcile.Result{}, err
 	}
-
-	//route := _deployment.NewRoute(instance, gatewayServiceName, instance.Namespace, gatewayServiceName, 8080)
-	//if err := controllerutil.SetControllerReference(instance, route, r.scheme); err != nil {
-	//	return reconcile.Result{}, err
-	//}
-	//if err := r.client.Create(context.TODO(), route); err != nil && !errors.IsAlreadyExists(err) {
-	//	return reconcile.Result{}, err
-	//} else if err == nil {
-	//	log.Info(fmt.Sprintf("Created %s Route", route.Name))
-	//	r.recorder.Eventf(instance, "Normal", "Route Created", "Created %s Route", route.Name)
-	//}
 
 	//Success
 	return reconcile.Result{}, nil

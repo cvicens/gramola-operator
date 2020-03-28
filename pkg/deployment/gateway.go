@@ -7,10 +7,13 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -116,7 +119,7 @@ func NewGatewayDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.
 										Path: "/api/events",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
-											IntVal: int32(8080),
+											IntVal: GatewayServicePort,
 										},
 										Scheme: corev1.URISchemeHTTP,
 									},
@@ -133,7 +136,7 @@ func NewGatewayDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.
 										Path: "/api/events",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
-											IntVal: int32(8080),
+											IntVal: GatewayServicePort,
 										},
 										Scheme: corev1.URISchemeHTTP,
 									},

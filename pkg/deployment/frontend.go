@@ -1,23 +1,68 @@
 package deployment
 
 import (
+	routev1 "github.com/openshift/api/route/v1"
 	gramolav1alpha1 "github.com/redhat/gramola-operator/pkg/apis/gramola/v1alpha1"
+	version "github.com/redhat/gramola-operator/version"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// Frontend services names
 const (
-	frontendImage = "quay.io/cvicensa/gramola-frontend:0.0.2"
+	FrontendServiceName     = "frontend"
+	FrontendServicePort     = 8080
+	FrontendServicePortName = "http"
+	FrontendServiceImage    = "quay.io/cvicensa/gramola-frontend:0.0.2"
 )
 
-// NewFrontendDeployment returns the deployment object for Gateway
-func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespace string, servicesToConnect []string) *appsv1.Deployment {
-	image := frontendImage
-	annotations := GetFrontendAnnotations(cr)
-	labels := GetAppServiceLabels(cr, name)
+// FrontendServiceReplicas number of replicas for Frontend Service
+var FrontendServiceReplicas = int32(2)
+
+// NewFrontendDeploymentPatch returns a Patch
+func NewFrontendDeploymentPatch(current *appsv1.Deployment) client.Patch {
+	patch := client.MergeFrom(current.DeepCopy())
+
+	current.Labels["version"] = version.Version
+
+	current.Spec.Replicas = &FrontendServiceReplicas
+	current.Spec.Template.Spec.Containers[0].Image = FrontendServiceImage
+
+	return patch
+}
+
+// NewFrontendServicePatch returns a Patch
+func NewFrontendServicePatch(current *corev1.Service) client.Patch {
+	patch := client.MergeFrom(current.DeepCopy())
+
+	current.Labels["version"] = version.Version
+
+	return patch
+}
+
+// NewFrontendRoutePatch returns a Patch
+func NewFrontendRoutePatch(current *routev1.Route) client.Patch {
+	patch := client.MergeFrom(current.DeepCopy())
+
+	current.Labels["version"] = version.Version
+
+	return patch
+}
+
+// NewFrontendDeployment returns the deployment object for Frontend
+func NewFrontendDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.Scheme) (*appsv1.Deployment, error) {
+	annotations := GetFrontendAnnotations(instance)
+	labels := GetAppServiceLabels(instance, FrontendServiceName)
 	labels["app.kubernetes.io/name"] = "nodejs"
 
 	env := []corev1.EnvVar{
@@ -27,14 +72,14 @@ func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespac
 		},
 	}
 
-	return &appsv1.Deployment{
+	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
 			APIVersion: "apps/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
+			Name:        FrontendServiceName,
+			Namespace:   instance.Namespace,
 			Labels:      labels,
 			Annotations: annotations,
 		},
@@ -50,13 +95,13 @@ func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespac
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            name,
-							Image:           image,
+							Name:            FrontendServiceName,
+							Image:           FrontendServiceImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
-									Name:          "http",
-									ContainerPort: 8080,
+									Name:          FrontendServicePortName,
+									ContainerPort: FrontendServicePort,
 									Protocol:      "TCP",
 								},
 							},
@@ -74,13 +119,13 @@ func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespac
 										Path: "/api/health",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
-											IntVal: int32(8080),
+											IntVal: FrontendServicePort,
 										},
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
 								FailureThreshold:    5,
-								InitialDelaySeconds: 60,
+								InitialDelaySeconds: 15,
 								PeriodSeconds:       10,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
@@ -91,13 +136,13 @@ func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespac
 										Path: "/api/health",
 										Port: intstr.IntOrString{
 											Type:   intstr.Int,
-											IntVal: int32(8080),
+											IntVal: FrontendServicePort,
 										},
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
 								FailureThreshold:    3,
-								InitialDelaySeconds: 120,
+								InitialDelaySeconds: 5,
 								PeriodSeconds:       10,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
@@ -109,4 +154,78 @@ func NewFrontendDeployment(cr *gramolav1alpha1.AppService, name string, namespac
 			},
 		},
 	}
+
+	if err := controllerutil.SetControllerReference(instance, deployment, scheme); err != nil {
+		return nil, err
+	}
+
+	return deployment, nil
+}
+
+// NewFrontendService return a Service object given name, namespace, etc.
+func NewFrontendService(instance *gramolav1alpha1.AppService, scheme *runtime.Scheme) (*corev1.Service, error) {
+	labels := GetAppServiceLabels(instance, FrontendServiceName)
+
+	service := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      FrontendServiceName,
+			Namespace: instance.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				corev1.ServicePort{
+					Name:     FrontendServicePortName,
+					Port:     FrontendServicePort,
+					Protocol: "TCP",
+				},
+			},
+			Selector: labels,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(instance, service, scheme); err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+
+// NewFrontendRoute returns an OpenShift Route object
+func NewFrontendRoute(instance *gramolav1alpha1.AppService, scheme *runtime.Scheme) (*routev1.Route, error) {
+	labels := GetAppServiceLabels(instance, FrontendServiceName)
+	targetPort := intstr.IntOrString{
+		Type:   intstr.Int,
+		IntVal: int32(FrontendServicePort),
+	}
+	route := &routev1.Route{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Route",
+			APIVersion: routev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      FrontendServiceName,
+			Namespace: instance.Namespace,
+			Labels:    labels,
+		},
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: FrontendServiceName,
+			},
+			Port: &routev1.RoutePort{
+				targetPort,
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(instance, route, scheme); err != nil {
+		return nil, err
+	}
+
+	return route, nil
 }

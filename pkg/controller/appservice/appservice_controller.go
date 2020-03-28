@@ -458,7 +458,7 @@ func (r *ReconcileAppService) UpdateEventsDatabase(request reconcile.Request) (b
 		log.Info(fmt.Sprintf("pod: %s phase: %s", pod.Name, pod.Status.Phase))
 		if pod.Status.Phase == corev1.PodRunning {
 			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.Name == _deployment.EventsDatabaseServiceName && containerStatus.Ready { // TODO constant for "postgresql"
+				if containerStatus.Name == _deployment.EventsDatabaseServiceName && containerStatus.Ready {
 					ready = append(ready, pod)
 					break
 				}
