@@ -23,15 +23,17 @@ import (
 
 // Events services names
 const (
-	EventsServiceName     = "events"
-	EventsServicePort     = 8080
-	EventsServicePortName = "http"
-	EventsServiceImage    = "quay.io/cvicensa/gramola-events:0.0.2"
+	EventsServiceName          = "events"
+	EventsServiceContainerName = "events"
+	EventsServicePort          = 8080
+	EventsServicePortName      = "http"
+	EventsServiceImage         = "quay.io/cvicensa/gramola-events:0.0.2"
 
-	EventsDatabaseServiceName     = EventsServiceName + "-database"
-	EventsDatabaseServicePort     = 5432
-	EventsDatabaseServicePortName = "postgresql"
-	EventsDatabaseServiceImage    = "image-registry.openshift-image-registry.svc:5000/openshift/postgresql:10"
+	EventsDatabaseServiceName          = EventsServiceName + "-database"
+	EventsDatabaseServiceContainerName = "postgresql"
+	EventsDatabaseServicePort          = 5432
+	EventsDatabaseServicePortName      = "postgresql"
+	EventsDatabaseServiceImage         = "image-registry.openshift-image-registry.svc:5000/openshift/postgresql:10"
 
 	EventsDatabasePersistanceVolumeName      = EventsDatabaseServiceName + "-data"
 	EventsDatabasePersistanceVolumeClaimName = EventsDatabaseServiceName
@@ -271,7 +273,7 @@ func NewEventsDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.S
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            EventsServiceName,
+							Name:            EventsServiceContainerName,
 							Image:           EventsServiceImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
@@ -401,7 +403,7 @@ func NewEventsDatabaseDeployment(instance *gramolav1alpha1.AppService, scheme *r
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            EventsDatabaseServiceName,
+							Name:            EventsDatabaseServiceContainerName,
 							Image:           EventsDatabaseServiceImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{

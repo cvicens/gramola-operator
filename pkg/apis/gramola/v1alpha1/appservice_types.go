@@ -82,10 +82,13 @@ type AppServiceCondition struct {
 
 // ReconcileStatus defines the reconciliation status
 type ReconcileStatus struct {
+	// Status shows the reconcile run
 	// +kubebuilder:validation:Enum=Succeded;Progressing;Failed;True
-	Status     AppServiceConditionStatus `json:"status,omitempty"`
-	LastUpdate metav1.Time               `json:"lastUpdate,omitempty"`
-	Reason     string                    `json:"reason,omitempty"`
+	Status AppServiceConditionStatus `json:"status,omitempty"`
+	// LastUpdate records the last time an update was regitered
+	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
+	// Reason for the update or change in status
+	Reason string `json:"reason,omitempty"`
 }
 
 // ActionType defines the potential actions types
@@ -93,19 +96,30 @@ type ActionType string
 
 // Action types defined here
 const (
-	RequeueEvent ActionType = "RequeueEvent"
-	NoAction     ActionType = "NoAction"
+	BackupStarted ActionType = "BackupStarted"
+	RequeueEvent  ActionType = "RequeueEvent"
+	NoAction      ActionType = "NoAction"
 )
 
 // DatabaseUpdateStatus defines the potential status of a database update
 type DatabaseUpdateStatus string
 
-// AppServiceConditionStatuses defined here
+// DatabaseUpdateStatuses defined here
 const (
 	DatabaseUpdateStatusSucceeded DatabaseUpdateStatus = "Succeeded"
 	DatabaseUpdateStatusFailed    DatabaseUpdateStatus = "Failed"
 	DatabaseUpdateStatusUnknown   DatabaseUpdateStatus = "Unknown"
 )
+
+// DatabaseScriptRun logs script run and status
+type DatabaseScriptRun struct {
+	// Script
+	Script string `json:"script"`
+
+	// Status of the run of the Script
+	// +kubebuilder:validation:Enum=Succeeded;Failed;Unknown
+	Status DatabaseUpdateStatus `json:"eventsDatabaseUpdated,omitempty"`
+}
 
 // AppServiceStatus defines the observed state of AppService
 type AppServiceStatus struct {
@@ -115,10 +129,17 @@ type AppServiceStatus struct {
 	ReconcileStatus `json:",inline"`
 
 	// Indicates if the Events Database has been updated or not
-	// +kubebuilder:validation:Enum=Unknown;Succeeded;Failed
+	// +kubebuilder:validation:Enum=BackupStarted;RequeueEvent;NoAction
 	EventsDatabaseUpdated DatabaseUpdateStatus `json:"eventsDatabaseUpdated,omitempty"`
 
-	LastAction ActionType            `json:"lastAction"`
+	// List of Event Database Scripts Runs
+	EventsDatabaseScriptRuns []DatabaseScriptRun `json:"eventsDatabaseScriptRuns,omitempty"`
+
+	// Last Action run
+	// +kubebuilder:validation:Enum=Unknown;Succeeded;Failed
+	LastAction ActionType `json:"lastAction"`
+
+	// Status Conditions
 	Conditions []AppServiceCondition `json:"conditions,omitempty"` // Used to wait => kubectl wait canary/podinfo --for=condition=promoted
 }
 

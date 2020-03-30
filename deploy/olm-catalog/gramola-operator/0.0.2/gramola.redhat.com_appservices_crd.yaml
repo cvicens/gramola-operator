@@ -52,6 +52,7 @@ spec:
           description: AppServiceStatus defines the observed state of AppService
           properties:
             conditions:
+              description: Status Conditions
               items:
                 description: AppServiceCondition defines the desired state
                 properties:
@@ -91,23 +92,48 @@ spec:
                 - type
                 type: object
               type: array
+            eventsDatabaseScriptRuns:
+              description: List of Event Database Scripts Runs
+              items:
+                description: DatabaseScriptRun logs script run and status
+                properties:
+                  eventsDatabaseUpdated:
+                    description: Status of the run of the Script
+                    enum:
+                    - Succeeded
+                    - Failed
+                    - Unknown
+                    type: string
+                  script:
+                    description: Script
+                    type: string
+                required:
+                - script
+                type: object
+              type: array
             eventsDatabaseUpdated:
               description: Indicates if the Events Database has been updated or not
+              enum:
+              - BackupStarted
+              - RequeueEvent
+              - NoAction
+              type: string
+            lastAction:
+              description: Last Action run
               enum:
               - Unknown
               - Succeeded
               - Failed
               type: string
-            lastAction:
-              description: ActionType defines the potential actions types
-              type: string
             lastUpdate:
+              description: LastUpdate records the last time an update was regitered
               format: date-time
               type: string
             reason:
+              description: Reason for the update or change in status
               type: string
             status:
-              description: AppServiceConditionStatus defines the potential status
+              description: Status shows the reconcile run
               enum:
               - Succeded
               - Progressing

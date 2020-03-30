@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -241,8 +242,6 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	log.Info(fmt.Sprintf("Status %s", instance.Status))
-
 	// Validate the CR instance
 	if ok, err := r.isValid(instance); !ok {
 		return r.ManageError(instance, err)
@@ -286,23 +285,37 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	//////////////////////////
 	// Update Events DataBase
 	//////////////////////////
-	log.Info(fmt.Sprintf("Status before Database Update %s", instance.Status))
-	if !(instance.Status.EventsDatabaseUpdated == gramolav1alpha1.DatabaseUpdateStatusSucceeded) {
+	// Update only if not applied before with success
+	if !r.CurrentDatabaseScriptWasRun(instance) {
+		// TODO Backup DB
+
+		// Start the Script Run
+		scriptRun := &gramolav1alpha1.DatabaseScriptRun{
+			Script: _deployment.EventsDatabaseUpdateScriptName,
+			Status: gramolav1alpha1.DatabaseUpdateStatusUnknown,
+		}
 		if dataBaseUpdated, err := r.UpdateEventsDatabase(request); err != nil {
-			log.Error(err, "error DB update", "instance", instance)
+			log.Error(err, "Error DB update", "instance", instance)
 			// Update Status
+			scriptRun.Status = gramolav1alpha1.DatabaseUpdateStatusFailed
+			instance.Status.EventsDatabaseScriptRuns = append(instance.Status.EventsDatabaseScriptRuns, *scriptRun)
 			instance.Status.EventsDatabaseUpdated = gramolav1alpha1.DatabaseUpdateStatusFailed
 			return r.ManageError(instance, err)
 		} else {
 			if dataBaseUpdated {
 				log.Info(fmt.Sprintf("dataBaseUpdated ====> %s", instance.Status))
 				// Update Status
+				scriptRun.Status = gramolav1alpha1.DatabaseUpdateStatusSucceeded
+				instance.Status.EventsDatabaseScriptRuns = append(instance.Status.EventsDatabaseScriptRuns, *scriptRun)
 				instance.Status.EventsDatabaseUpdated = gramolav1alpha1.DatabaseUpdateStatusSucceeded
 				err := r.client.Update(context.Background(), instance)
 				if err != nil {
 					log.Error(err, errorUnableToUpdateInstance, "instance", instance)
 					return r.ManageError(instance, err)
 				}
+			} else {
+				// Maybe the Database Pods weren't ready but running... so scchedule a new reconcile cycle
+				return r.ManageSuccess(instance, 10*time.Second, gramolav1alpha1.RequeueEvent)
 			}
 		}
 	}
@@ -450,21 +463,21 @@ func (r *ReconcileAppService) UpdateEventsDatabase(request reconcile.Request) (b
 		return false, err
 	}
 
-	//log.Info(fmt.Sprintf("podList: %s", podList))
-
 	// Count the pods that are pending or running as available
 	var ready []corev1.Pod
 	for _, pod := range podList.Items {
-		log.Info(fmt.Sprintf("pod: %s phase: %s", pod.Name, pod.Status.Phase))
+		log.Info(fmt.Sprintf("pod: %s phase: %s statuses: %s", pod.Name, pod.Status.Phase, pod.Status.ContainerStatuses))
 		if pod.Status.Phase == corev1.PodRunning {
 			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.Name == _deployment.EventsDatabaseServiceName && containerStatus.Ready {
+				if containerStatus.Name == _deployment.EventsDatabaseServiceContainerName && containerStatus.Ready {
 					ready = append(ready, pod)
 					break
 				}
 			}
 		}
 	}
+
+	log.Info(fmt.Sprintf("ready: %s", ready))
 
 	if len(ready) > 0 {
 		filePath := _deployment.EventsDatabaseScriptsMountPath + "/" + _deployment.EventsDatabaseUpdateScriptName
@@ -475,6 +488,10 @@ func (r *ReconcileAppService) UpdateEventsDatabase(request reconcile.Request) (b
 			if len(_err) > 0 {
 				return false, errors.Wrapf(err, "Failed executing script %s on %s", filePath, _deployment.EventsDatabaseServiceName)
 			} else {
+				errorFound := regexp.MustCompile(`(?i)error`)
+				if errorFound.MatchString(_out) {
+					return false, errors.Wrapf(err, "Failed executing script %s on %s", filePath, _deployment.EventsDatabaseServiceName)
+				}
 				return true, nil
 			}
 		}
@@ -524,4 +541,16 @@ func (r *ReconcileAppService) ExecuteRemoteCommand(pod *corev1.Pod, command stri
 	}
 
 	return buf.String(), errBuf.String(), nil
+}
+
+// CurrentDatabaseScriptWasRun checks if the current Database Update Script was run
+func (r *ReconcileAppService) CurrentDatabaseScriptWasRun(instance *gramolav1alpha1.AppService) bool {
+	for i := range instance.Status.EventsDatabaseScriptRuns {
+		if instance.Status.EventsDatabaseScriptRuns[i].Script == _deployment.EventsDatabaseUpdateScriptName &&
+			instance.Status.EventsDatabaseScriptRuns[i].Status == gramolav1alpha1.DatabaseUpdateStatusSucceeded {
+			return true
+		}
+	}
+
+	return false
 }
