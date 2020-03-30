@@ -308,11 +308,6 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 				scriptRun.Status = gramolav1alpha1.DatabaseUpdateStatusSucceeded
 				instance.Status.EventsDatabaseScriptRuns = append(instance.Status.EventsDatabaseScriptRuns, *scriptRun)
 				instance.Status.EventsDatabaseUpdated = gramolav1alpha1.DatabaseUpdateStatusSucceeded
-				err := r.client.Update(context.Background(), instance)
-				if err != nil {
-					log.Error(err, errorUnableToUpdateInstance, "instance", instance)
-					return r.ManageError(instance, err)
-				}
 			} else {
 				// Maybe the Database Pods weren't ready but running... so scchedule a new reconcile cycle
 				return r.ManageSuccess(instance, 10*time.Second, gramolav1alpha1.RequeueEvent)
