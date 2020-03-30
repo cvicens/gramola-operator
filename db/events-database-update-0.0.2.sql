@@ -52,8 +52,8 @@ BEGIN
             ADD CONSTRAINT event_pkey PRIMARY KEY (id);
     ELSE
         ALTER TABLE public.event
-            ADD COLUMN start_date CHARACTER VARYING(255),
-            ADD COLUMN end_date CHARACTER VARYING(255);
+            ADD COLUMN IF NOT EXISTS start_date CHARACTER VARYING(255),
+            ADD COLUMN IF NOT EXISTS end_date CHARACTER VARYING(255);
 
         -- Migrate data
         FOR event_row IN
