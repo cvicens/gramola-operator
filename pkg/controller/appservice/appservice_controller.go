@@ -51,7 +51,7 @@ const operatorName = "gramola-operator"
 const controllerName = "controller-appservice"
 
 const (
-	errorAlias                    = "Not a proper AppService object because TargetRef is not Deployment or DeploymentConfig"
+	errorAlias                    = "Not a proper AppService object because Alias is not Gramola, Gramophone or Phonograph"
 	errorNotAppServiceObject      = "Not a AppService object"
 	errorAppServiceObjectNotValid = "Not a valid AppService object"
 	errorUnableToUpdateInstance   = "Unable to update instance"
@@ -336,7 +336,8 @@ func (r *ReconcileAppService) isValid(obj metav1.Object) (bool, error) {
 	}
 
 	// Check Alias
-	if len(instance.Spec.Alias) > 0 && instance.Spec.Alias != "Gramola" && instance.Spec.Alias != "Gramophone" {
+	if len(instance.Spec.Alias) > 0 &&
+		instance.Spec.Alias != "Gramola" && instance.Spec.Alias != "Gramophone" && instance.Spec.Alias != "Phonograph" {
 		err := k8s_errors.NewBadRequest(errorAlias)
 		log.Error(err, errorAlias)
 		return false, err
