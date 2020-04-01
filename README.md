@@ -407,6 +407,8 @@ func init() {
 ##```
 
 
+
+
 ## Add /db and files...
 TODO
 
@@ -518,6 +520,10 @@ redhat-operators      appregistry   https://quay.io/cnr   redhat-operators      
 
 If you go to the Operator Hub you should see `Other` category... etc.
 
+
+# Preview your CSV
+
+https://operatorhub.io/preview
 
 # Deploy your operator
 

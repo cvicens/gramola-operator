@@ -129,14 +129,14 @@ type AppServiceStatus struct {
 	ReconcileStatus `json:",inline"`
 
 	// Indicates if the Events Database has been updated or not
-	// +kubebuilder:validation:Enum=BackupStarted;RequeueEvent;NoAction
+	// +kubebuilder:validation:Enum=Succeeded;Failed;Unknown
 	EventsDatabaseUpdated DatabaseUpdateStatus `json:"eventsDatabaseUpdated,omitempty"`
 
 	// List of Event Database Scripts Runs
 	EventsDatabaseScriptRuns []DatabaseScriptRun `json:"eventsDatabaseScriptRuns,omitempty"`
 
 	// Last Action run
-	// +kubebuilder:validation:Enum=Unknown;Succeeded;Failed
+	// +kubebuilder:validation:Enum=BackupStarted;NoAction;RequeueEvent
 	LastAction ActionType `json:"lastAction"`
 
 	// Status Conditions

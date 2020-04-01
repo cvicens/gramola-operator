@@ -54,14 +54,10 @@ Check that version 0.0.1 has been uploaded to quay.io
 
 Make it public! As you know this is only to make the demo easier!
 
-# To speed up things... let's re-create the catalog source
+# To speed up things... let's refresh the operator source
 
 ```sh
-oc delete -n openshift-marketplace -f ./deploy/operator-source.yaml
-```
-
-```sh
-oc apply -n openshift-marketplace -f ./deploy/operator-source.yaml
+ ./operatorsource-refresh.sh 
 ```
 
 # Deploy version 0.0.1 of our operator

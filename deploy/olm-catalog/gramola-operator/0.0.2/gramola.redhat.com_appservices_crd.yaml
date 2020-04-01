@@ -114,16 +114,16 @@ spec:
             eventsDatabaseUpdated:
               description: Indicates if the Events Database has been updated or not
               enum:
-              - BackupStarted
-              - RequeueEvent
-              - NoAction
+              - Succeeded
+              - Failed
+              - Unknown
               type: string
             lastAction:
               description: Last Action run
               enum:
-              - Unknown
-              - Succeeded
-              - Failed
+              - BackupStarted
+              - NoAction
+              - RequeueEvent
               type: string
             lastUpdate:
               description: LastUpdate records the last time an update was regitered
