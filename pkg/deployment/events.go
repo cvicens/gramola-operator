@@ -170,6 +170,42 @@ func NewEventsDeploymentPatch(current *appsv1.Deployment) client.Patch {
 	current.Spec.Replicas = &EventsServiceReplicas
 	current.Spec.Template.Spec.Containers[0].Image = EventsServiceImage
 
+	current.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/api/events",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: int32(EventsServicePort),
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold:    3,
+		InitialDelaySeconds: 20,
+		PeriodSeconds:       2,
+		SuccessThreshold:    1,
+		TimeoutSeconds:      1,
+	}
+
+	current.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/api/events",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: int32(EventsServicePort),
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold:    3,
+		InitialDelaySeconds: 22,
+		PeriodSeconds:       2,
+		SuccessThreshold:    1,
+		TimeoutSeconds:      1,
+	}
+
 	return patch
 }
 
@@ -301,9 +337,9 @@ func NewEventsDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.S
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
-								FailureThreshold:    5,
+								FailureThreshold:    3,
 								InitialDelaySeconds: 20,
-								PeriodSeconds:       10,
+								PeriodSeconds:       2,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
 							},
@@ -319,8 +355,8 @@ func NewEventsDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.S
 									},
 								},
 								FailureThreshold:    3,
-								InitialDelaySeconds: 10,
-								PeriodSeconds:       10,
+								InitialDelaySeconds: 22,
+								PeriodSeconds:       2,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
 							},

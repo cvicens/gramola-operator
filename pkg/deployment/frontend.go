@@ -38,6 +38,42 @@ func NewFrontendDeploymentPatch(current *appsv1.Deployment) client.Patch {
 	current.Spec.Replicas = &FrontendServiceReplicas
 	current.Spec.Template.Spec.Containers[0].Image = FrontendServiceImage
 
+	current.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/api/health",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: FrontendServicePort,
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold:    5,
+		InitialDelaySeconds: 26,
+		PeriodSeconds:       2,
+		SuccessThreshold:    1,
+		TimeoutSeconds:      1,
+	}
+
+	current.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/api/health",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: FrontendServicePort,
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold:    3,
+		InitialDelaySeconds: 28,
+		PeriodSeconds:       2,
+		SuccessThreshold:    1,
+		TimeoutSeconds:      1,
+	}
+
 	return patch
 }
 
@@ -125,8 +161,8 @@ func NewFrontendDeployment(instance *gramolav1alpha1.AppService, scheme *runtime
 									},
 								},
 								FailureThreshold:    5,
-								InitialDelaySeconds: 15,
-								PeriodSeconds:       10,
+								InitialDelaySeconds: 26,
+								PeriodSeconds:       2,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
 							},
@@ -142,8 +178,8 @@ func NewFrontendDeployment(instance *gramolav1alpha1.AppService, scheme *runtime
 									},
 								},
 								FailureThreshold:    3,
-								InitialDelaySeconds: 5,
-								PeriodSeconds:       10,
+								InitialDelaySeconds: 28,
+								PeriodSeconds:       2,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
 							},

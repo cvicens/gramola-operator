@@ -38,6 +38,42 @@ func NewGatewayDeploymentPatch(current *appsv1.Deployment) client.Patch {
 	current.Spec.Replicas = &GatewayServiceReplicas
 	current.Spec.Template.Spec.Containers[0].Image = GatewayServiceImage
 
+	current.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/api/events",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: GatewayServicePort,
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold:    3,
+		InitialDelaySeconds: 25,
+		PeriodSeconds:       2,
+		SuccessThreshold:    1,
+		TimeoutSeconds:      1,
+	}
+
+	current.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/api/events",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: GatewayServicePort,
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold:    3,
+		InitialDelaySeconds: 27,
+		PeriodSeconds:       2,
+		SuccessThreshold:    1,
+		TimeoutSeconds:      1,
+	}
+
 	return patch
 }
 
@@ -124,9 +160,9 @@ func NewGatewayDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
-								FailureThreshold:    5,
-								InitialDelaySeconds: 60,
-								PeriodSeconds:       10,
+								FailureThreshold:    3,
+								InitialDelaySeconds: 25,
+								PeriodSeconds:       2,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
 							},
@@ -142,8 +178,8 @@ func NewGatewayDeployment(instance *gramolav1alpha1.AppService, scheme *runtime.
 									},
 								},
 								FailureThreshold:    3,
-								InitialDelaySeconds: 120,
-								PeriodSeconds:       10,
+								InitialDelaySeconds: 27,
+								PeriodSeconds:       2,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
 							},

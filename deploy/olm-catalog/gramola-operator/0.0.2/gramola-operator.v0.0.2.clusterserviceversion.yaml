@@ -15,7 +15,7 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
     categories: Other
     certified: "false"
     containerImage: quay.io/cvicensa/gramola-operator:0.0.2

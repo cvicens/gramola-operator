@@ -1,0 +1,7 @@
+- command: update 
+  path: channels
+  value:
+    - currentCSV: gramola-operator.v0.0.2
+      name: alpha
+
+
