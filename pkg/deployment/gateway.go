@@ -214,7 +214,7 @@ func NewGatewayService(instance *gramolav1alpha1.AppService, scheme *runtime.Sch
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name:     GatewayServicePortName,
 					Port:     GatewayServicePort,
 					Protocol: "TCP",
@@ -254,7 +254,7 @@ func NewGatewayRoute(instance *gramolav1alpha1.AppService, scheme *runtime.Schem
 				Name: GatewayServiceName,
 			},
 			Port: &routev1.RoutePort{
-				targetPort,
+				TargetPort: targetPort,
 			},
 		},
 	}

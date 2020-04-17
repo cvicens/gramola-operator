@@ -30,7 +30,7 @@ func NewRoute(cr *gramolav1alpha1.AppService, name string, namespace string, ser
 				Name: serviceName,
 			},
 			Port: &routev1.RoutePort{
-				targetPort,
+				TargetPort: targetPort,
 			},
 		},
 	}

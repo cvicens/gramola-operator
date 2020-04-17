@@ -543,7 +543,7 @@ func NewEventsService(instance *gramolav1alpha1.AppService, scheme *runtime.Sche
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name:     EventsServicePortName,
 					Port:     EventsServicePort,
 					Protocol: "TCP",
@@ -576,7 +576,7 @@ func NewEventsDatabaseService(instance *gramolav1alpha1.AppService, scheme *runt
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name:     EventsDatabaseServicePortName,
 					Port:     EventsDatabaseServicePort,
 					Protocol: "TCP",
@@ -616,7 +616,7 @@ func NewEventsRoute(instance *gramolav1alpha1.AppService, scheme *runtime.Scheme
 				Name: EventsServiceName,
 			},
 			Port: &routev1.RoutePort{
-				targetPort,
+				TargetPort: targetPort,
 			},
 		},
 	}

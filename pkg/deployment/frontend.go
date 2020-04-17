@@ -214,7 +214,7 @@ func NewFrontendService(instance *gramolav1alpha1.AppService, scheme *runtime.Sc
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name:     FrontendServicePortName,
 					Port:     FrontendServicePort,
 					Protocol: "TCP",
@@ -254,7 +254,7 @@ func NewFrontendRoute(instance *gramolav1alpha1.AppService, scheme *runtime.Sche
 				Name: FrontendServiceName,
 			},
 			Port: &routev1.RoutePort{
-				targetPort,
+				TargetPort: targetPort,
 			},
 		},
 	}

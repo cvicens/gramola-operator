@@ -16,14 +16,19 @@ type AppServiceSpec struct {
 	// Flags if the the AppService object is enabled or not
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enabled"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	Enabled bool `json:"enabled"`
 
 	// Flags if the object has been initialized or not
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Initialized"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	Initialized bool `json:"initialized,omitempty"`
 
 	// Different names for Gramola Service
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Alias"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// +kubebuilder:validation:Enum=Gramola;Gramophone;Phonograph
 	Alias string `json:"alias,omitempty"`
 }
@@ -137,9 +142,15 @@ type AppServiceStatus struct {
 
 	// Last Action run
 	// +kubebuilder:validation:Enum=BackupStarted;NoAction;RequeueEvent
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.displayName="Last Action"
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	LastAction ActionType `json:"lastAction"`
 
 	// Status Conditions
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.displayName="AppService Conditions"
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
 	Conditions []AppServiceCondition `json:"conditions,omitempty"` // Used to wait => kubectl wait canary/podinfo --for=condition=promoted
 }
 

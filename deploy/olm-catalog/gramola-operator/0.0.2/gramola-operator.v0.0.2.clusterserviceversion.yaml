@@ -39,9 +39,29 @@ spec:
       - description: Different names for Gramola Service
         displayName: Alias
         path: alias
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
       - description: Flags if the the AppService object is enabled or not
         displayName: Enabled
         path: enabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Flags if the object has been initialized or not
+        displayName: Initialized
+        path: initialized
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      statusDescriptors:
+      - description: Status Conditions
+        displayName: AppService Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
+      - description: Last Action run
+        displayName: Last Action
+        path: lastAction
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
       version: v1alpha1
   description: |
     A sample social event management system (**Gramola**) built mostly with [Quarkus](https://quarkus.io).
