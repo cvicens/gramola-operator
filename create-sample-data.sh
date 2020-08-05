@@ -1,4 +1,11 @@
-GATEWAY_HOST="http://gateway-gramola-olm-test.apps.cluster-gramola-ac20.gramola-ac20.example.opentlc.com"
+#!/bin/sh
+
+if [ -z "$1" ]
+  then
+    echo "No Gateway URL supplied"
+fi
+
+GATEWAY_HOST=$1
 
 DATE=$(date "+%Y-%m-%d")
 
