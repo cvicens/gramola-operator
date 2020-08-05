@@ -1,54 +1,151 @@
-# Being grateful first
-Part of the code borrowed from https://github.com/mcouliba/openshift-workshop-operator
+# Introduction
 
-# Installing the Operator SDK
-export RELEASE_VERSION=v0.15.1
+After a conversation with my colleague [Tero](https://github.com/tahonen) we decided to prepare a session to highlight the benefits a developer can get from the Operators in general and from the [Operator Framework](https://github.com/operator-framework) in particular. For that session we depicted two demos: one to show how easy is to have a Kafka cluster on OpenShift (Red Hat's kubernetes distribution) and another one showing a custom operator that deployed and updated an application called **Gramola**.
+
+This is the reposiory for the Operator created for that demo and effectively the demo itself.
+
+## TL;DR
+
+With this guide *you will learn how we created the operator to deploy version 0.0.1 of [Gramola]()* (a Java based application including an Angular UI, a Gateway and Events API and a PostgreSQL database). More importantly *you will also learn how we evolved the operator moving from version 0.0.1 to 0.0.2* (this included update the database schema and migrating data to the new schema). And even more importantly how we used the [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager) to do all this automatically.
+
+The 2nd part of the guide explains how to run the demo, no need to code just enjoy deploying and upgrading our target application.
+
+## Prerequisites
+
+You need basic understanding of what an operator is to understand this guide
+Additionally if you want to run the demo or create your own Operator you also need:
+
+* [Go](https://golang.org/dl) 1.13.5+
+* [Operator SDK](https://sdk.operatorframework.io/build/) v0.15.1+
+* Free account in [Quay](https://quay.io) (this is needed to store the manifests that describe channels and versions of your operators)
+
+Golang Based Operator SDK Installation
+Follow the steps in the installation guide to learn how to install the Operator SDK CLI tool.
+
+Additional Prerequisites https://sdk.operatorframework.io/docs/golang/installation/
+git
+go version v1.12+.
+mercurial version 3.9+
+docker version 17.03+.
+kubectl version v1.11.3+.
+Access to a Kubernetes v1.11.3+ cluster.
+
+## Being grateful first
+Parts of the code of this operator were borrowed from another [operator](https://github.com/mcouliba/openshift-workshop-operator) coded by my colleague [Madou](https://github.com/mcouliba) 
+
+## About this guide
+
+I have divided the guide in two parts:
+
+1. The first part explains end to end how to create an Operator taking this operator as a starting point.
+2. The second one explains how to run the demo consisting on deploying version 0.0.1 and then upgrade to 0.0.2 and see how the database schema is modified and data is migrated.
+
+# Creting the Gramola Operator
+
+## Installing the Operator SDK
+
+In order to simplify and speed up the development of an operator we're going to install the [Operator SDK](https://sdk.operatorframework.io/build/).
+
+```sh
+export RELEASE_VERSION=v0.19.2
+export OS=apple-darwin
 
 mkdir ./bin
 
-curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-${OS}
 
-mv operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu ./bin/operator-sdk
+mv operator-sdk-${RELEASE_VERSION}-x86_64-${OS} ./bin/operator-sdk
 
-chmos u+x ./bin/operator-sdk
+chmod u+x ./bin/operator-sdk
 
-export PATH=$PATH:$(pwd)/bin
+export PATH=$(pwd)/bin:$PATH
+```
 
-# Quay log in
+## Log in to quay.io
 
+You need the free account to use Quay as the repository for your operator manifests bundle. Then use those credentials to log in using docker/podman.
+
+```sh
 docker login quay.io
+```
 
-# Set up environment
-cd $GOPATH
+## Set up environment
+
+Let's define some environment variables that will come handy later. Special attention to **GO111MODULE**.
+
+```sh
 export GO111MODULE=on
 
-export OPERATOR_NAME="gramola-operator"
-export OPERATOR_IMAGE="gramola-operator-image"
-export API_VERSION="gramola.redhat.com/v1alpha1"
+export OPERATOR_VENDOR="redhat" 
+export APP_NAME="gramola"
+
+export OPERATOR_NAME="${APP_NAME}-operator"
+export OPERATOR_IMAGE="${APP_NAME}-operator-image"
+
+export API_VERSION="${APP_NAME}.${OPERATOR_VENDOR}.com/v1alpha1"
+export API_VERSION="v1alpha1"
 
 export PROJECT_NAME=${OPERATOR_NAME}-project
+``` 
 
-# Create an ${OPERATOR_NAME} project that defines the App CR.
-mkdir -p $GOPATH/src/github.com/redhat
+## Create the scaffold for our operator
 
-cd $GOPATH/src/github.com/redhat
+We're going to generate the Golang scaffold for our operator, just do as follows.
 
-operator-sdk new ${OPERATOR_NAME} --type=go --repo github.com/redhat/${OPERATOR_NAME}
+> **NOTE:** operator-sdk init generates a go.mod file to be used with Go modules. The --repo=<path> flag is required when creating a project outside of $GOPATH/src, as scaffolded files require a valid module path. Ensure you activate module support by running export GO111MODULE=on before using the SDK.
 
+```sh
+mkdir -p $GOPATH/src/github.com/${OPERATOR_VENDOR}
+
+or 
+
+mkdir -p ./${OPERATOR_VENDOR}/${OPERATOR_NAME}
+
+
+
+cd $GOPATH/src/github.com/${OPERATOR_VENDOR}
+
+or
+
+cd ./${OPERATOR_VENDOR}/${OPERATOR_NAME}
+
+
+
+operator-sdk new ${OPERATOR_NAME} --type=go --repo github.com/${OPERATOR_VENDOR}/${OPERATOR_NAME}
+
+or
+
+operator-sdk init --domain=${OPERATOR_VENDOR}.com --repo=github.com/${OPERATOR_VENDOR}/${OPERATOR_NAME}
+
+```
+
+## Add a new API for the custom resource AppService
+
+> **NOTE:** IF error creating API ==> export GOROOT=$(go env GOROOT)
+
+```sh
 cd ./${OPERATOR_NAME}
 
-# Add a new API for the custom resource AppService
 
-> IF error creating API ==> export GOROOT=$(go env GOROOT)
 
-$ operator-sdk add api --api-version=${API_VERSION} --kind=AppService
+operator-sdk add api --api-version=${API_VERSION} --kind=AppService
 
-# Add a new controller that watches for AppService
+or
+
+operator-sdk create api --group=${APP_NAME} --version=${API_VERSION} --kind=AppService
+Create Resource [y/n]
+y
+Create Controller [y/n]
+y
+```
+
+## [OLD] Add a new controller that watches for AppService
+
 
 $ operator-sdk add controller --api-version=${API_VERSION} --kind=AppService
 
 
-# Edit the CR
+# Edit the CR [OLD]
 
 code ./pkg/apis/gramola/<version>/<kind>_types.go
 
@@ -69,6 +166,32 @@ code ./pkg/apis/gramola/v1alpha1/appservice_types.go
     // +kubebuilder:validation:Enum=Gramola,Gramophone,Phonograph
     Alias string `json:"alias,omitempty"``
   }
+
+## Edit CR AppService
+
+Go to `./pkg/apis/v1alpha1/appservice_types.go`
+
+Find this:
+
+```go
+	// Foo is an example field of AppService. Edit AppService_types.go to remove/update
+	Foo string `json:"foo,omitempty"`
+```
+
+And subsitute it with:
+
+```go
+	// +kubebuilder:validation:Minimum=0
+	// Size is the size of the memcached deployment
+	Size int32 `json:"size"
+```
+
+Go to
+
+```go
+// Nodes are the names of the memcached pods
+	Nodes []string `json:"nodes"`
+```
 
 ## Regenerate supporting code for your CRDs
 operator-sdk generate k8s
